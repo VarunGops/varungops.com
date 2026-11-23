@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 60000,
+  workers: process.env.CI ? 1 : 2,   // the stage is software-rendered in the test browser; more workers starve each other
   expect: { timeout: 10000 },
   reporter: [['list']],
   use: { baseURL: 'http://localhost:4321', launchOptions: { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist'] } },

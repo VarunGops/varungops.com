@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+// These tests are about the written content. Reduced motion draws the stage once instead of animating it,
+// which keeps software WebGL in the test browser from starving them.
+test.use({ reducedMotion: 'reduce' });
+
 test('home page loads with the name and no console errors', async ({ page }) => {
   const errors = []; page.on('console', m => m.type() === 'error' && errors.push(m.text())); page.on('pageerror', e => errors.push(String(e)));
   await page.goto('/');

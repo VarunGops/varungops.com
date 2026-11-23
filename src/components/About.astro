@@ -11,6 +11,7 @@ const { Content } = await render(entry);
     {entry.data.facts && <p class="facts">{entry.data.facts}</p>}
   </div>
   <div class="heart-wrap">
+    <img class="still still-heart" src="/still/heart.webp" alt="An anatomical heart drawn as a red engraving" width="800" height="1000" decoding="async" />
     <canvas id="heart" class="heart" aria-hidden="true"></canvas>
   </div>
   <div class="about-r">{!hidden && <Content />}</div>

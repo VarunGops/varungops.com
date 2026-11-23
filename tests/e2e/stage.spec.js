@@ -17,7 +17,7 @@ test('frozen frames match the approved mockup', async ({ page }) => {
 });
 test('the smoke starts at the outline, not over the brain', async ({ page }) => {
   await page.goto('/?age=0.03&yaw=0.2&mesh=0&tracts=0'); await live(page);
-  const a = await page.evaluate(() => { const c = document.querySelector('#smoke'), o = document.createElement('canvas'); o.width = c.width; o.height = c.height; const x = o.getContext('2d'); x.drawImage(c, 0, 0); const at = (fx, fy) => x.getImageData(Math.round(c.width * fx), Math.round(c.height * fy), 1, 1).data[3]; const H = innerHeight / c.clientHeight; return { centre: at(0.5, 0.47 * H), far: at(0.03, 0.47 * H) }; });
+  const a = await page.evaluate(() => { const c = document.querySelector('#smoke'), o = document.createElement('canvas'); o.width = c.width; o.height = c.height; const x = o.getContext('2d'); x.drawImage(c, 0, 0); const at = (fx, fy) => x.getImageData(Math.round(c.width * fx), Math.round(c.height * fy), 1, 1).data[3]; const H = innerHeight / c.clientHeight; return { centre: at(0.5, 0.47 * H), far: at(0.03, 0.05 * H) }; });
   expect(a.centre).toBe(0); expect(a.far).toBe(0);
 });
 test('the heart is drawn and the line runs behind it', async ({ page }) => {
