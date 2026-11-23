@@ -134,6 +134,7 @@ export function createBrain(canvas, prep, { preserve = false } = {}) {
   if (!gl) return null;
   const { m, col, fit } = prep;
   const meshPr = program(gl, MESH_VS, MESH_FS), silPr = program(gl, MESH_VS, SIL_FS), fibPr = program(gl, FIBRE_VS, FIBRE_FS), linePr = program(gl, LINE_VS, LINE_FS);
+  if (!meshPr || !silPr || !fibPr || !linePr) return null;
   const mesh = gl.createVertexArray(); gl.bindVertexArray(mesh);
   const attr = (loc, d, size, type, norm) => { gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, type, norm, 0, 0); };
   attr(0, m.pos, 3, gl.FLOAT, false); attr(1, m.nrm, 3, gl.BYTE, true); attr(2, m.depth, 1, gl.UNSIGNED_BYTE, false); attr(3, m.relief, 1, gl.BYTE, false); attr(4, col, 3, gl.UNSIGNED_BYTE, true);

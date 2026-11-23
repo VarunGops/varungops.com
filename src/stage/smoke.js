@@ -57,7 +57,9 @@ export function createSmoke(canvas, { preserve = false } = {}) {
   const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS) && !gl.isContextLost()) console.error(gl.getShaderInfoLog(o)); return o; };
   const pr = gl.createProgram();
   gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 a; void main(){ gl_Position = vec4(a, 0., 1.); }'));
-  gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, SMOKE_FS)); gl.linkProgram(pr); gl.useProgram(pr);
+  gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, SMOKE_FS)); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
+  gl.useProgram(pr);
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const a = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
   const u = {}; for (const n of ['uRes', 'uC', 'uR0', 'uRmax', 'uFade0', 'uFade1', 'uAge', 'uSeed', 'uSdf', 'uBox', 'uPx']) u[n] = gl.getUniformLocation(pr, n);

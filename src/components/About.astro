@@ -7,7 +7,7 @@ const { Content } = await render(entry);
 <section class="about gutter" id="about" data-label="About">
   <div class="about-l">
     <p class="label">About</p>
-    <h2>{entry.data.heading}</h2>
+    <h2>{hidden ? 'About me' : entry.data.heading}</h2>
     {entry.data.facts && <p class="facts">{entry.data.facts}</p>}
   </div>
   <div class="heart-wrap">

@@ -88,14 +88,17 @@ const webgl2 = (() => { try { return !!document.createElement('canvas').getConte
 async function start() {
   if (!webgl2) { setStage('still'); return; }
   try { data = await loadAll(mainEl.offsetWidth < 700); } catch (err) { console.warn('anatomy data did not load:', err.message); setStage('failed'); return; }
-  prep = prepareBrain(data);
-  brain = createBrain(stageC, prep, { preserve });
-  if (!brain) { setStage('still'); return; }
-  smoke = createSmoke(smokeC, { preserve });
-  heart = createHeart(heartEl, data.heart, { preserve });
-  watchContext(stageC, () => { brain = createBrain(stageC, prep, { preserve }); });
-  watchContext(smokeC, () => { smoke = createSmoke(smokeC, { preserve }); });
-  watchContext(heartEl, () => { heart = createHeart(heartEl, data.heart, { preserve }); });
+  try {
+    prep = prepareBrain(data);
+    brain = createBrain(stageC, prep, { preserve });
+    if (!brain) { setStage('still'); return; }
+    smoke = createSmoke(smokeC, { preserve });
+    heart = createHeart(heartEl, data.heart, { preserve });
+  } catch (err) { console.warn('the stage could not be built:', err.message); setStage('failed'); return; }
+  if (!heart) html.dataset.heart = 'still';             // no heart context: its still image stays, the rest stays live
+  watchContext(stageC, () => (brain = createBrain(stageC, prep, { preserve })));
+  watchContext(smokeC, () => (smoke = createSmoke(smokeC, { preserve })) || true);
+  watchContext(heartEl, () => (heart = createHeart(heartEl, data.heart, { preserve })) || true);
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
   relayout();
   if (!reduce) requestAnimationFrame(frame);
@@ -106,7 +109,8 @@ async function start() {
 function watchContext(canvas, rebuild) {
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost.add(canvas); setStage('still'); });
   canvas.addEventListener('webglcontextrestored', () => {
-    rebuild(); lost.delete(canvas);
+    if (!rebuild()) return;                       // it came back unusable: the still images stay
+    lost.delete(canvas);
     if (!lost.size) relayout();                 // the next frame drawn sets 'live' again
   });
 }

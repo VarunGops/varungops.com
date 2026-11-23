@@ -4,7 +4,7 @@ import { YC, ZC } from './cord.js';
 export function program(gl, vs, fs) {
   const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS) && !gl.isContextLost()) console.error(gl.getShaderInfoLog(o)); return o; };
   const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) console.error(gl.getProgramInfoLog(p));
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { if (!gl.isContextLost()) console.warn('WebGL program did not link:', gl.getProgramInfoLog(p)); return null; }
   const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS) || 0;
   for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name.replace('[0]', '')] = gl.getUniformLocation(p, info.name); }
   return { p, u, a: name => gl.getAttribLocation(p, name) };

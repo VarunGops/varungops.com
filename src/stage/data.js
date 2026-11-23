@@ -2,10 +2,10 @@
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 
-export async function fetchRetry(url, kind, tries = 3) {
+export async function fetchRetry(url, kind, tries = 3, init) {
   for (let i = 1; ; i++) {
     try {
-      const r = await fetch(url);
+      const r = await fetch(url, init);
       if (!r.ok) throw new Error(`${url} ${r.status}`);
       return await r[kind]();
     } catch (err) {
@@ -53,8 +53,23 @@ export function stemFit(pos, region, z, tol) {
   return { yc: (y0 + y1) / 2, ry: (y1 - y0) / 2, rx };
 }
 
+// The byte length each file must have, from its own .json. A short file means a dropped or stale download.
+const NEED = {
+  brain: j => j.verts * 12 + j.faces * 12,
+  tracts: j => j.streamlines * j.points * 6 + 2 * j.streamlines,
+  heart: j => Math.ceil(j.verts * 10 / 4) * 4 + j.faces * 12,
+};
+const kindOf = name => name.replace('-lite', '');
+
 export async function loadAll(lite, base = '/data/') {
-  const pair = async name => { const [json, buf] = await Promise.all([fetchRetry(`${base}${name}.json`, 'json'), fetchRetry(`${base}${name}.bin`, 'arrayBuffer')]); return { json, buf }; };
+  const get = async (name, init) => { const [json, buf] = await Promise.all([fetchRetry(`${base}${name}.json`, 'json', 3, init), fetchRetry(`${base}${name}.bin`, 'arrayBuffer', 3, init)]); return { json, buf }; };
+  const ok = (name, p) => p.buf.byteLength >= NEED[kindOf(name)](p.json);
+  const pair = async name => {
+    let p = await get(name);
+    if (!ok(name, p)) p = await get(name, { cache: 'reload' });     // once more, past any cached copy
+    if (!ok(name, p)) throw new RangeError(`${name}.bin is truncated`);
+    return p;
+  };
   const [brain, tracts, heart] = await Promise.all([pair('brain'), pair(lite ? 'tracts-lite' : 'tracts'), pair('heart')]);
   return { brain, tracts, heart };
 }

@@ -113,6 +113,9 @@ a.entry:hover{text-decoration:underline;text-decoration-color:var(--red)}
 .still-heart{inset:0;width:100%;height:100%;object-fit:contain}
 .heart{position:relative;z-index:1}
 html[data-stage="live"] .still{display:none}
+html:not([data-stage="live"]) canvas.layer,html:not([data-stage="live"]) .heart{visibility:hidden}
+html[data-heart="still"] .still-heart{display:block}
+html[data-heart="still"] .heart{visibility:hidden}
 
 /* ---------- credits ---------- */
 .credits{position:relative;z-index:5;max-width:760px;margin-inline:auto;padding-block:8vh 12vh;text-align:center;background:var(--bg)}

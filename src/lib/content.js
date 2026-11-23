@@ -1,7 +1,8 @@
 import { getCollection, getEntry } from 'astro:content';
 
 // Draft copy shows in `astro dev`, and in a production build only when SHOW_DRAFTS=1.
-export const showDrafts = () => !import.meta.env.PROD || process.env.SHOW_DRAFTS === '1';
+// Keyed to Astro's mode, not NODE_ENV, so a build run from a test runner (NODE_ENV=test) still hides drafts.
+export const showDrafts = () => import.meta.env.MODE === 'development' || process.env.SHOW_DRAFTS === '1';
 
 export const section = async id => {
   const e = await getEntry('sections', id);

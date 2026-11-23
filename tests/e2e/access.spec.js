@@ -38,3 +38,26 @@ test('every section is reachable by keyboard', async ({ page }) => {
   await page.goto('/'); for (let i = 0; i < 4; i++) await page.keyboard.press('Tab');
   expect(await page.evaluate(() => document.activeElement.tagName)).toBe('A');
 });
+
+test('a truncated anatomy file ends in the still images, not a stuck page', async ({ page }) => {
+  await page.route('**/data/brain.bin', async r => { const res = await r.fetch(); const body = await res.body(); await r.fulfill({ response: res, body: body.subarray(0, 1000) }); });
+  const errors = []; page.on('pageerror', e => errors.push(String(e)));
+  await page.goto('/'); await stage(page, 'failed');
+  await expect(page.locator('#home img.still')).toBeVisible(); expect(errors).toEqual([]);
+});
+test('if the heart cannot get a WebGL context its still image stays', async ({ page }) => {
+  await page.addInitScript(() => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (k, ...a) { return this.id === 'heart' && /webgl/.test(k) ? null : g.call(this, k, ...a); }; });
+  await page.goto('/?age=4.38&yaw=0.2&smoke=0'); await stage(page, 'live');
+  await expect(page.locator('#about img.still')).toBeVisible();
+});
+test('a canvas whose context is lost is hidden, so it never shows over the still', async ({ page }) => {
+  await page.goto('/?age=0.35&yaw=0.2'); await stage(page, 'live');
+  await page.evaluate(() => document.querySelector('#heart').getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
+  await stage(page, 'still');
+  for (const sel of ['#stage', '#smoke', '#heart']) expect(await page.locator(sel).evaluate(c => getComputedStyle(c).visibility)).toBe('hidden');
+});
+test('shaders that fail to link leave the still images up', async ({ page }) => {
+  await page.addInitScript(() => { const g = WebGL2RenderingContext.prototype.getProgramParameter; WebGL2RenderingContext.prototype.getProgramParameter = function (p, k) { return k === this.LINK_STATUS ? false : g.call(this, p, k); }; });
+  await page.goto('/'); await stage(page, 'still');
+  await expect(page.locator('#home img.still')).toBeVisible();
+});

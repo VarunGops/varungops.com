@@ -66,7 +66,8 @@ export function createHeart(canvas, { json: hj, buf: hb }, { preserve = false } 
   const nv = hj.verts, q = new Uint16Array(hb, 0, nv * 3), n8 = new Int8Array(hb, nv * 6, nv * 3), cls = new Uint8Array(hb, nv * 9, nv);
   const idx = new Uint32Array(hb, Math.ceil(nv * 10 / 4) * 4, hj.faces * 3), pos = new Float32Array(nv * 3);
   for (let i = 0; i < nv; i++) for (let a = 0; a < 3; a++) pos[i * 3 + a] = hj.lo[a] + q[i * 3 + a] / 65535 * (hj.hi[a] - hj.lo[a]);
-  const pr = program(gl, HEART_VS, HEART_FS), vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const pr = program(gl, HEART_VS, HEART_FS); if (!pr) return null;
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
   const attr = (name, data, size, type, norm) => { const loc = pr.a(name); if (loc < 0) return; gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, type, norm, 0, 0); };
   attr('aPos', pos, 3, gl.FLOAT, false); attr('aNrm', n8, 3, gl.BYTE, true); attr('aCls', cls, 1, gl.UNSIGNED_BYTE, false);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW); gl.bindVertexArray(null);
