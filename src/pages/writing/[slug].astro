@@ -1,0 +1,15 @@
+---
+import { getCollection, render } from 'astro:content';
+import Detail from '../../layouts/Detail.astro';
+export async function getStaticPaths() {
+  return (await getCollection('writing', e => !e.data.draft)).map(e => ({ params: { slug: e.id }, props: { e } }));
+}
+const { e } = Astro.props;
+const { Content } = await render(e);
+---
+<Detail title={e.data.title} description={e.data.summary}>
+  <p class="label">Writing · {e.data.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+  <h1>{e.data.title}</h1>
+  <div class="prose"><Content /></div>
+  <p class="back"><a href="/#writing">Back to writing</a></p>
+</Detail>

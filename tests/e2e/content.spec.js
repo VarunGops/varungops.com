@@ -40,3 +40,19 @@ test.describe('with JavaScript off', () => {
     await expect(page.getByRole('link', { name: /doi:10\.7759\/cureus\.114519/ })).toBeVisible();
   });
 });
+
+test('each research entry has its own page', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: /Mapping Half a Century of Global Brain Abscess Research/ }).click();
+  await expect(page).toHaveURL(/\/research\/[a-z0-9-]+\/$/);
+  await expect(page.getByRole('link', { name: /doi:10\.7759\/cureus\.114519/ })).toHaveAttribute('href', 'https://doi.org/10.7759/cureus.114519');
+  await expect(page.getByRole('link', { name: 'Varun Gopal Rajan' })).toHaveAttribute('href', '/');
+});
+test('the feed and sitemap exist', async ({ request }) => {
+  expect((await request.get('/rss.xml')).status()).toBe(200);
+  expect((await request.get('/sitemap-index.xml')).status()).toBe(200);
+});
+test('an unknown address shows the 404 page', async ({ page }) => {
+  const r = await page.goto('/nothing-here/'); expect(r.status()).toBe(404);
+  await expect(page.getByRole('link', { name: 'Varun Gopal Rajan' })).toBeVisible();
+});

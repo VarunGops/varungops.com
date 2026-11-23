@@ -1,0 +1,17 @@
+---
+import { getCollection, render } from 'astro:content';
+import Detail from '../../layouts/Detail.astro';
+export async function getStaticPaths() {
+  return (await getCollection('research')).map(e => ({ params: { slug: e.id }, props: { e } }));
+}
+const { e } = Astro.props;
+const { Content } = await render(e);
+const status = e.data.status[0].toUpperCase() + e.data.status.slice(1);
+---
+<Detail title={e.data.title} description={`${status}, ${e.data.when}. ${e.data.venue ?? ''}`.trim()}>
+  <p class="label">Research · {status} · {e.data.when}</p>
+  <h1>{e.data.title}</h1>
+  {(e.data.venue || e.data.doi) && <p class="where">{e.data.venue}{e.data.doi && <> <a href={`https://doi.org/${e.data.doi}`}>doi:{e.data.doi}</a></>}</p>}
+  <div class="prose"><Content /></div>
+  <p class="back"><a href="/#research">Back to research</a></p>
+</Detail>

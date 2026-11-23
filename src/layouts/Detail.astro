@@ -1,0 +1,11 @@
+---
+import Base from './Base.astro';
+interface Props { title: string; description: string }
+const { title, description } = Astro.props;
+---
+<Base title={`${title} · Varun Gopal Rajan`} description={description}>
+  <div class="detail gutter">
+    <a class="home-link" href="/">Varun Gopal Rajan</a>
+    <article><slot /></article>
+  </div>
+</Base>

@@ -2,11 +2,11 @@
 import { getCollection } from 'astro:content';
 const posts = (await getCollection('writing', e => !e.data.draft)).sort((a, b) => +b.data.date - +a.data.date);
 ---
-<section class="stop" data-label="Writing"><div>
+<section class="stop" id="writing" data-label="Writing"><div>
   <p class="label">Writing</p><h2>Essays and notes</h2>
   {posts.length > 0 && (
     <ul class="items">
-      {posts.map(p => <li><span class="when">{p.data.date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</span><strong>{p.data.title}</strong><p>{p.data.summary}</p></li>)}
+      {posts.map(p => <li><span class="when">{p.data.date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</span><strong><a class="entry" href={`/writing/${p.id}/`}>{p.data.title}</a></strong><p>{p.data.summary}</p></li>)}
     </ul>
   )}
 </div></section>
