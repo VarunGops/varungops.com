@@ -1,0 +1,1 @@
+{"verts": 74832, "faces": 149992, "lo": [-71.862, -106.535, -72.109], "hi": [71.862, 73.374, 81.982], "depthScale": 12, "reliefScale": 24, "regions": ["unlabelled", "frontal", "parietal", "temporal", "occipital", "limbic", "insula", "cerebellum", "brainstem"], "space": "MNI ICBM 2009c nonlinear symmetric, millimetres"}
