@@ -4,7 +4,14 @@ import { join } from 'node:path';
 const walk = d => !existsSync(d) ? [] : readdirSync(d).flatMap(f => statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : f.endsWith('.md') ? [join(d, f)] : []);
 const files = walk('src/content'), text = files.map(f => readFileSync(f, 'utf8')).join('\n');
 const bodies = files.map(f => readFileSync(f, 'utf8').replace(/^---[\s\S]*?---/, '')).join('\n');   // dates and the DOI live in front matter
+const comps = !existsSync('src/components') ? [] : readdirSync('src/components').filter(f => f.endsWith('.astro')).map(f => readFileSync(join('src/components', f), 'utf8')).join('\n');
 describe('content rules', () => {
+  it('holds the copy written into components to the same rules', () => {
+    expect(comps.length).toBeGreaterThan(0);
+    expect(comps).not.toMatch(/\bvisa\b|sponsorship|right to work|fellow|craniosynostosis|deprivation|Alder Hey/i);
+    expect(comps).not.toMatch(/\b(passionate|dedicated|genuinely|truly|delighted|leverage|robust|pivotal)\b/i);
+    expect(comps).not.toMatch(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i);
+  });
   it('has all the content files', () => { expect(files.length).toBe(19); });
   it('never carries a phone number', () => { expect(bodies).not.toMatch(/\+?\d[\d ()-]{8,}\d/); });
   it('carries one email address only, the Outlook one', () => { expect([...new Set(text.match(/[\w.+-]+@[\w-]+\.[\w.]+/g))]).toEqual(['drvarungopal@outlook.com']); });

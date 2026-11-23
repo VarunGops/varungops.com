@@ -1,0 +1,10 @@
+---
+import { section } from '../lib/content.js';
+const { entry } = await section('contact');
+const mail = (entry.body || '').trim();
+---
+<section class="stop" data-label="Contact" id="last"><div>
+  <p class="label">Contact</p><h2>{entry.data.heading}</h2>
+  <p><a class="mail" href={`mailto:${mail}`}>{mail}</a></p>
+  <p><a href="https://www.linkedin.com/in/varun-g-rajan-a4a80a213">LinkedIn</a> · <a href="https://orcid.org/0009-0001-4362-1531">ORCID</a></p>
+</div></section>

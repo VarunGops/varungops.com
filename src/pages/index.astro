@@ -1,8 +1,26 @@
 ---
 import Base from '../layouts/Base.astro';
+import Home from '../components/Home.astro';
+import About from '../components/About.astro';
+import Now from '../components/Now.astro';
+import Experience from '../components/Experience.astro';
+import Research from '../components/Research.astro';
+import Teaching from '../components/Teaching.astro';
+import Writing from '../components/Writing.astro';
+import Life from '../components/Life.astro';
+import Collaborate from '../components/Collaborate.astro';
+import Contact from '../components/Contact.astro';
+import Line from '../components/Line.astro';
+import Credits from '../components/Credits.astro';
 ---
 <Base title="Varun Gopal Rajan" description="Dr Varun Gopal Rajan: a doctor working towards a life in surgery and the brain.">
-  <section class="home" id="home">
-    <h1 class="name">Varun Gopal Rajan</h1>
-  </section>
+  <canvas id="stage" class="layer" aria-hidden="true" slot="before"></canvas>
+  <canvas id="smoke" class="layer" aria-hidden="true" slot="before"></canvas>
+  <Home />
+  <About />
+  <div class="stops gutter">
+    <Now /><Experience /><Research /><Teaching /><Writing /><Life /><Collaborate /><Contact />
+  </div>
+  <Credits />
+  <Line slot="after" />
 </Base>

@@ -1,0 +1,17 @@
+---
+import { render } from 'astro:content';
+import { section } from '../lib/content.js';
+const { entry, hidden } = await section('about');
+const { Content } = await render(entry);
+---
+<section class="about gutter" id="about" data-label="About">
+  <div class="about-l">
+    <p class="label">About</p>
+    <h2>{entry.data.heading}</h2>
+    {entry.data.facts && <p class="facts">{entry.data.facts}</p>}
+  </div>
+  <div class="heart-wrap">
+    <canvas id="heart" class="heart" aria-hidden="true"></canvas>
+  </div>
+  <div class="about-r">{!hidden && <Content />}</div>
+</section>

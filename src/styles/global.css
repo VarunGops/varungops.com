@@ -21,3 +21,73 @@ p{margin:0;color:var(--dim);max-width:34em}
 a{color:var(--fg);text-decoration-color:var(--red-dim);text-underline-offset:3px}
 a:hover{text-decoration-color:var(--red)}
 a:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+#stage{z-index:0}
+#smoke{z-index:1}
+
+/* ---------- home ---------- */
+.home{position:relative;height:100svh;min-height:520px}
+.name{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  margin:0;width:max-content;max-width:calc(100% - 32px);text-align:center;
+  font-family:var(--display);font-weight:300;text-transform:uppercase;
+  font-size:clamp(1.1rem,3.3vw,2.85rem);letter-spacing:.34em;padding-left:.34em;line-height:1.5;
+  color:#fff;text-wrap:balance;
+  text-shadow:0 0 14px #000,0 0 30px #000,0 0 60px rgba(0,0,0,.95);
+}
+.name::before{content:"";position:absolute;inset:-90% -14%;z-index:-1;
+  background:radial-gradient(closest-side,rgba(0,0,0,.72),rgba(0,0,0,.4) 55%,transparent)}
+.descent{height:78svh}
+
+/* ---------- about + heart ---------- */
+.about{display:grid;grid-template-columns:1fr minmax(220px,400px) 1fr;gap:48px;align-items:center;max-width:1180px;margin-inline:auto}
+.about-l{text-align:right}
+.heart{width:100%;aspect-ratio:4/5;display:block}
+.about-r p+p{margin-top:1em}
+.about-l h2{margin-left:auto;max-width:13em}
+.facts{font:400 11px/1.9 var(--mono);letter-spacing:.12em;text-transform:uppercase;margin:18px 0 0 auto;max-width:26em}
+
+/* ---------- the line and its stops ---------- */
+/* Without the stage script these CSS positions hold; main.js moves them onto the cord once it has measured the page. */
+.spine{position:absolute;left:50%;width:6px;margin-left:-3px;z-index:1;pointer-events:none;top:200svh;bottom:0;
+  background:linear-gradient(90deg,transparent,rgba(255,35,56,.7) 50%,transparent);
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 80px,#000 calc(100% - 160px),transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0,#000 80px,#000 calc(100% - 160px),transparent 100%)}
+.track{position:absolute;left:50%;width:0;z-index:4;pointer-events:none;top:200svh;bottom:0}
+.marker{position:sticky;top:60vh;width:0;height:0}
+.marker i{position:absolute;left:-5px;top:-5px;width:10px;height:10px;border-radius:50%;background:#fff;
+  box-shadow:0 0 10px #fff,0 0 26px var(--red),0 0 50px var(--red)}
+.marker b{position:absolute;left:20px;top:-9px;font:500 11px/18px var(--mono);letter-spacing:.24em;
+  text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.stops{position:relative;max-width:1100px;margin-inline:auto;padding-block:10vh 26vh}
+.stop{position:relative;display:grid;grid-template-columns:1fr 1fr;column-gap:110px;align-items:start;padding-block:11vh}
+.stop>div{grid-column:2}
+.stop:nth-child(even)>div{grid-column:1;justify-self:end;text-align:right}
+.stop:nth-child(even) p{margin-left:auto}
+.stop h2{margin-bottom:12px}
+.stop::before{content:"";position:absolute;left:50%;top:calc(11vh + 5px);width:11px;height:11px;margin:-6px 0 0 -6px;
+  border-radius:50%;border:1px solid var(--red);background:var(--bg);box-shadow:0 0 12px rgba(255,35,56,.5)}
+.stop p+p{margin-top:.9em}
+.items{list-style:none;margin:22px 0 0;padding:0}
+.items li{padding:14px 0;border-top:1px solid rgba(255,255,255,.09)}
+.items li.brief{padding-block:10px}
+.when{display:block;font:500 10.5px/1.4 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
+.items strong{display:block;font-family:var(--display);font-weight:400;font-size:1.06rem;line-height:1.32;color:var(--fg);text-wrap:balance}
+.where{display:block;color:var(--dim);font-size:.93rem;line-height:1.5;margin-top:2px}
+.items p,.small{font-size:.93rem}
+.items p{margin-top:6px}
+.small{margin-top:18px}
+.mail{font-family:var(--display);font-size:1.25rem;color:var(--fg)}
+
+@media (max-width:820px){
+  .about{grid-template-columns:1fr;gap:34px;text-align:center;justify-items:center}
+  .about-l,.about-r{text-align:center}
+  .heart-wrap{order:-1;width:min(78vw,340px)}
+  .about-l h2,.about p,.facts{margin-inline:auto}
+  .about-l,.about-r,.stop{position:relative;z-index:2;background:var(--bg)}
+  .stop{display:block;margin-block:16vh;padding-block:20px;text-align:center}
+  .stop:nth-child(even)>div{text-align:center}
+  .stop p,.stop:nth-child(even) p{margin-inline:auto}
+  .stop::before{display:none}
+  .marker b{display:none}
+  .stops{padding-block:2vh 20vh}
+}
