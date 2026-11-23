@@ -29,6 +29,13 @@ try {
   await page.locator('#heart').scrollIntoViewIfNeeded(); await page.waitForTimeout(500);
   const { w, h } = await page.evaluate(() => { const r = document.querySelector('#heart').getBoundingClientRect(); return { w: r.width, h: r.height }; });
   await save('heart', await grab('#heart', w, h, 800, 1000));
+
+  // the social preview: the first screen at 1200 x 630, brain and name
+  const og = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+  await og.goto(`${base}/?age=4.38&yaw=0.2&smoke=0`);
+  await og.waitForFunction(() => document.documentElement.dataset.stage === 'live', null, { timeout: 180000 });
+  await og.waitForTimeout(300);
+  await og.screenshot({ path: 'public/og.png' }); console.log('wrote public/og.png');
 } finally {
   await browser.close(); server.kill();
 }

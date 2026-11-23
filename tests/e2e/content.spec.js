@@ -60,3 +60,14 @@ test('an unknown address shows the 404 page', async ({ page }) => {
   const r = await page.goto('/nothing-here/'); expect(r.status()).toBe(404);
   await expect(page.getByRole('link', { name: 'Varun Gopal Rajan' })).toBeVisible();
 });
+
+test('the page describes itself for search and sharing', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://varungops.com/og.png');
+  const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent());
+  expect(ld['@type']).toBe('Person'); expect(ld.name).toBe('Varun Gopal Rajan'); expect(ld.sameAs).toContain('https://www.linkedin.com/in/varun-g-rajan-a4a80a213'); expect(ld.sameAs).toContain('https://orcid.org/0009-0001-4362-1531');
+});
+test('the footer credits all three anatomy sources', async ({ page }) => {
+  await page.goto('/'); const f = page.getByRole('contentinfo');
+  for (const s of ['MNI ICBM 152 2009c', 'HCP-1065 tractography atlas', 'Human Connectome Project', 'BodyParts3D', 'CC BY-SA 4.0']) await expect(f).toContainText(s);
+});

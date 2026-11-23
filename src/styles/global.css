@@ -113,3 +113,11 @@ a.entry:hover{text-decoration:underline;text-decoration-color:var(--red)}
 .still-heart{inset:0;width:100%;height:100%;object-fit:contain}
 .heart{position:relative;z-index:1}
 html[data-stage="live"] .still{display:none}
+
+/* ---------- credits ---------- */
+.credits{position:relative;z-index:5;max-width:760px;margin-inline:auto;padding-block:8vh 12vh;text-align:center;background:var(--bg)}
+.credits ul{list-style:none;margin:0;padding:0}
+.credits li,.credits p{font:400 11px/1.8 var(--mono);letter-spacing:.04em;color:var(--faint);max-width:none}
+.credits li+li{margin-top:.6em}
+.credits ul+p{margin-top:1.2em}
+.credits .label{color:var(--faint)}

@@ -6,8 +6,15 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '../styles/global.css';
 
-interface Props { title: string; description: string }
-const { title, description } = Astro.props;
+interface Props { title: string; description: string; person?: boolean }
+const { title, description, person = false } = Astro.props;
+const site = Astro.site ?? new URL('https://varungops.com');
+const url = new URL(Astro.url.pathname, site).href, image = new URL('/og.png', site).href;
+const ld = {
+  '@context': 'https://schema.org', '@type': 'Person', name: 'Varun Gopal Rajan', honorificPrefix: 'Dr', url: site.href, jobTitle: 'Doctor',
+  alumniOf: { '@type': 'CollegeOrUniversity', name: 'Adichunchanagiri Institute of Medical Sciences' },
+  sameAs: ['https://www.linkedin.com/in/varun-g-rajan-a4a80a213', 'https://orcid.org/0009-0001-4362-1531'],
+};
 ---
 <!doctype html>
 <html lang="en-GB">
@@ -17,6 +24,19 @@ const { title, description } = Astro.props;
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={url} />
+    <link rel="alternate" type="application/rss+xml" title="Varun Gopal Rajan: writing" href="/rss.xml" />
+    <meta property="og:type" content={person ? 'profile' : 'article'} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={url} />
+    <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A human brain in colour on black, with the name Varun Gopal Rajan across it" />
+    <meta name="twitter:card" content="summary_large_image" />
+    {person && <script type="application/ld+json" set:html={JSON.stringify(ld)} />}
     <slot name="head" />
   </head>
   <body>
