@@ -71,3 +71,11 @@ test('the footer credits all three anatomy sources', async ({ page }) => {
   await page.goto('/'); const f = page.getByRole('contentinfo');
   for (const s of ['MNI ICBM 152 2009c', 'HCP-1065 tractography atlas', 'Human Connectome Project', 'BodyParts3D', 'CC BY-SA 4.0']) await expect(f).toContainText(s);
 });
+
+test('the CV can be downloaded as a PDF', async ({ page, request }) => {
+  await page.goto('/');
+  const link = page.getByRole('link', { name: /Download my CV/ });
+  await expect(link).toHaveAttribute('href', '/Dr_Varun_Gopal_Rajan_CV.pdf');
+  const r = await request.get('/Dr_Varun_Gopal_Rajan_CV.pdf');
+  expect(r.status()).toBe(200); expect((await r.body()).subarray(0, 4).toString()).toBe('%PDF');
+});
