@@ -1,0 +1,23 @@
+:root{
+  --bg:#000;
+  --fg:#f1ecec;
+  --dim:#a0959a;
+  --faint:#50464a;
+  --red:#ff2338;
+  --red-dim:rgba(255,35,56,.4);
+  --display:"Outfit","Avenir Next","Helvetica Neue",Arial,sans-serif;
+  --body:"Source Serif 4 Variable","Source Serif 4",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{margin:0;position:relative;font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+canvas.layer{position:absolute;top:0;left:0;display:block;pointer-events:none}
+main{position:relative;z-index:2;overflow-x:clip}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.label{font:500 11px/1 var(--mono);letter-spacing:.26em;text-transform:uppercase;color:var(--red);margin:0 0 18px}
+h2{font-family:var(--display);font-weight:300;font-size:clamp(1.5rem,2.6vw,2.15rem);line-height:1.22;margin:0;text-wrap:balance}
+p{margin:0;color:var(--dim);max-width:34em}
+a{color:var(--fg);text-decoration-color:var(--red-dim);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--red)}
+a:focus-visible{outline:2px solid var(--red);outline-offset:3px}

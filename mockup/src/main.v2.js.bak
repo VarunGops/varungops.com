@@ -1,0 +1,278 @@
+/* varungops.com home stage.
+   A real brain: the cortex surface comes from the MNI ICBM 2009c MRI template, the lobes from the CerebrA atlas,
+   and the fibres inside it from the HCP-1065 tractography atlas. Nothing here is drawn by hand. */
+const TAU = Math.PI * 2, T = 0.96;            // T = one heartbeat, seconds
+const YC = -16, ZC = 15;                      // the model point (mm) that sits on the page's centre line, under the name
+const SPEED = 2.2;                            // impulse speed along a pathway, lengths per second
+const CORD_RATE = 68;                         // mm of cord travelled per unit of that speed (about 150 mm/s)
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const $ = s => document.querySelector(s);
+const lubdub = ph => { const g = (c, w) => Math.exp(-Math.pow((ph - c) / w, 2)) + Math.exp(-Math.pow((ph - 1 - c) / w, 2)); return Math.min(1, g(0.03, 0.05) + 0.55 * g(0.31, 0.06)); };
+function rng(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const Q = new URLSearchParams(location.search);
+const FROZEN = Q.get('age') == null ? null : +Q.get('age'); // review aids: ?age=1.2 freezes the burst, ?yaw=0.3 fixes the view
+const YAW = Q.get('yaw') == null ? null : +Q.get('yaw');
+const HEART_YAW = Q.get('hyaw') == null ? null : +Q.get('hyaw'), HEART_AGE = Q.get('hage') == null ? null : +Q.get('hage');
+const NO_SMOKE = Q.get('smoke') === '0', NO_MESH = Q.get('mesh') === '0', NO_TRACTS = Q.get('tracts') === '0';
+
+const G = {};
+const home = $('#home'), nameEl = $('.name'), mainEl = $('main'), stageC = $('#stage');
+const heartEl = $('#heart'), track = $('.track'), spine = $('.spine'), markerEl = $('.marker'), mlabel = $('#mlabel');
+const secs = [...document.querySelectorAll('[data-label]')];
+const sg = stageC.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true });
+
+/* ---------- shaders ---------- */
+const PROJ = `
+uniform vec4 uView;   // cos yaw, sin yaw, page px per mm, unused
+uniform vec2 uAnchor; // page px of the model origin
+uniform vec2 uRes;    // stage size in page px
+vec3 proj(vec3 p){    // MNI mm (x right, y anterior, z up), seen from the right side and turned by the yaw
+  float yp = p.y - (${YC}.), zp = p.z - (${ZC}.);
+  float yr = yp*uView.x - p.x*uView.y, xr = yp*uView.y + p.x*uView.x;
+  return vec3(uAnchor.x + yr*uView.z, uAnchor.y - zp*uView.z, xr);
+}
+vec4 clip(vec3 s){ return vec4(s.x/uRes.x*2. - 1., 1. - s.y/uRes.y*2., -s.z/300., 1.); }`;
+
+const MESH_VS = `#version 300 es
+in vec3 aPos; in vec3 aNrm; in float aDepth; in float aRelief; in vec3 aCol;
+${PROJ}
+out vec3 vCol; out float vDepth; out float vRel; out vec3 vN; out float vZ;
+void main(){
+  gl_Position = clip(proj(aPos)); vRel = aRelief/24.;
+  vN = vec3(aNrm.y*uView.x - aNrm.x*uView.y, aNrm.z, aNrm.y*uView.y + aNrm.x*uView.x); // right, up, towards the viewer
+  vCol = aCol; vDepth = aDepth/12.; vZ = aPos.z;
+}`;
+const MESH_FS = `#version 300 es
+precision highp float;
+in vec3 vCol; in float vDepth; in float vRel; in vec3 vN; in float vZ;
+uniform float uBeat;
+out vec4 o;
+void main(){
+  vec3 n = normalize(vN);
+  float rim = pow(1. - clamp(n.z, 0., 1.), 2.4);
+  float w = fwidth(vRel)*1.25 + 1e-4;
+  float lip = 1. - smoothstep(0., w, abs(vRel + .05));           // one fine line where each gyrus turns down into its sulcus
+  float crown = smoothstep(-.25, .55, vRel);                    // gyral crowns carry the light, sulci stay dark
+  float fissure = 1. - smoothstep(2.5, 7., vDepth);             // the deep fissures (Sylvian, longitudinal) fall to black
+  float lit = .3 + .7*clamp(dot(n, normalize(vec3(.3, .55, .78))), 0., 1.);
+  float I = (crown*(.16 + .34*lit)*fissure + lip*.85 + rim*.55)*(.82 + .4*uBeat);
+  I *= smoothstep(-72., -56., vZ);                              // the cut end of the brainstem dissolves into the cord
+  vec3 c = mix(vCol, vec3(1.), lip*.4 + rim*.15)*I;
+  o = vec4(c, max(c.r, max(c.g, c.b)));
+}`;
+const LINE_VS = `#version 300 es
+in vec2 aCorner;            // x: 0 at a, 1 at b; y: -1 or +1 across the line
+in vec3 aA; in vec3 aB; in vec2 aS; in vec3 aCol; in float aW;
+${PROJ}
+uniform float uSeg, uBeatN, uFire, uDepthFade;   // segments per pathway, beat number, share of pathways that fire on a beat
+out vec3 vCol; out float vS; out float vSide; out float vKind; flat out float vSel;
+void main(){
+  vec3 a = proj(aA), b = proj(aB);
+  float sid = floor(float(gl_InstanceID)/uSeg);
+  vSel = step(fract(sin(sid*12.9898 + uBeatN*78.233)*43758.5453), uFire);   // a different handful of pathways carries each beat
+  vec2 d = b.xy - a.xy; float L = length(d); vec2 t = L > 1e-4 ? d/L : vec2(0., 1.); vec2 n = vec2(-t.y, t.x);
+  float hw = abs(aW);
+  vec2 p = mix(a.xy, b.xy, aCorner.x) + n*aCorner.y*hw;
+  gl_Position = clip(vec3(p, 0.));
+  float near = clamp(.52 + (a.z + b.z)/260., .22, 1.);          // fibres in the far hemisphere sit back, so the two halves do not add up to white
+  vCol = aCol*mix(1., near, uDepthFade); vS = mix(aS.x, aS.y, aCorner.x); vSide = aCorner.y; vKind = aW < 0. ? 1. : 0.;
+}`;
+const LINE_FS = `#version 300 es
+precision highp float;
+in vec3 vCol; in float vS; in float vSide; in float vKind; flat in float vSel;
+uniform vec4 uHead; uniform float uGain, uPulseW;
+out vec4 o;
+void main(){
+  float edge = 1. - abs(vSide);
+  float prof = mix(edge*edge, edge, vKind);          // the single thread uses a plain linear falloff, to match the CSS line it hands over to
+  float pulse = 0.;
+  for (int i = 0; i < 4; i++){ float h = uHead[i]; if (h >= 0.) pulse += exp(-pow((vS - h)/uPulseW, 2.)); }
+  vec3 hot = mix(vCol*1.1 + .12, vCol*.55 + .5, vKind);       // impulses keep their pathway's colour; only the line to the heart runs white-hot
+  vec3 c = vCol*uGain*prof + hot*pulse*vSel*prof*(.5 + 1.2*vKind)*length(vCol);
+  o = vec4(c, max(c.r, max(c.g, c.b)));
+}`;
+
+function program(gl, vs, fs) {
+  const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o), src.split('\n').slice(0, 3).join(' ')); return o; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(p));
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name.replace('[0]', '')] = gl.getUniformLocation(p, info.name); }
+  return { p, u, a: name => gl.getAttribLocation(p, name) };
+}
+
+/* ---------- data ---------- */
+const REGION_COL = [[.8, .8, .8], [.24, .6, 1], [1, .8, .22], [.22, 1, .52], [1, .3, .42], [.18, .95, .9], [.92, .92, .96], [.72, .45, 1], [1, .58, .22]];
+// unlabelled, frontal, parietal, temporal, occipital, limbic, insula, cerebellum, brainstem
+
+function buildMesh(gl, bj, bb) {
+  const nv = bj.verts, q = new Uint16Array(bb, 0, nv * 3), n8 = new Int8Array(bb, nv * 6, nv * 3), d8 = new Uint8Array(bb, nv * 9, nv), reg = new Uint8Array(bb, nv * 10, nv);
+  const rel = new Int8Array(bb, nv * 11, nv), idx = new Uint32Array(bb, nv * 12, bj.faces * 3);
+  const pos = new Float32Array(nv * 3), col = new Uint8Array(nv * 3);
+  for (let i = 0; i < nv; i++) for (let a = 0; a < 3; a++) {
+    pos[i * 3 + a] = bj.lo[a] + q[i * 3 + a] / 65535 * (bj.hi[a] - bj.lo[a]);
+    col[i * 3 + a] = Math.round(REGION_COL[reg[i]][a] * 255);
+  }
+  const pr = program(gl, MESH_VS, MESH_FS), vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const attr = (name, data, size, type, norm) => { const loc = pr.a(name); if (loc < 0) return; gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, type, norm, 0, 0); };
+  attr('aPos', pos, 3, gl.FLOAT, false); attr('aNrm', n8, 3, gl.BYTE, true); attr('aDepth', d8, 1, gl.UNSIGNED_BYTE, false); attr('aRelief', rel, 1, gl.BYTE, false); attr('aCol', col, 3, gl.UNSIGNED_BYTE, true);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+  return { pr, vao, count: idx.length };
+}
+
+const STRIDE = 12; // floats per line segment: a(3) b(3) s(2) colour(3) half-width(1)
+function lineSet(gl, pr) {
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 0, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+  let loc = pr.a('aCorner'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  for (const [name, size, off] of [['aA', 3, 0], ['aB', 3, 3], ['aS', 2, 6], ['aCol', 3, 8], ['aW', 1, 11]]) {
+    loc = pr.a(name); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, STRIDE * 4, off * 4); gl.vertexAttribDivisor(loc, 1);
+  }
+  gl.bindVertexArray(null);
+  return { vao, buf, count: 0, set(data) { gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); this.count = data.length / STRIDE; } };
+}
+
+function buildTracts(tj, tb) {
+  const N = tj.streamlines, P = tj.points, q = new Uint16Array(tb, 0, N * P * 3), flag = new Uint8Array(tb, N * P * 6 + N, N);
+  const sc = [0, 1, 2].map(a => (tj.hi[a] - tj.lo[a]) / 65535);
+  const pt = (i, j) => { const o = (i * P + j) * 3; return [tj.lo[0] + q[o] * sc[0], tj.lo[1] + q[o + 1] * sc[1], tj.lo[2] + q[o + 2] * sc[2]]; };
+  const data = new Float32Array(N * (P - 1) * STRIDE), starts = []; let o = 0;
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < P - 1; j++) {
+      const a = pt(i, j), b = pt(i, j + 1), d = [Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]), Math.abs(b[2] - a[2])], m = Math.max(d[0], d[1], d[2]) || 1;
+      // the standard tractography colour code: left-right red, front-back green, up-down blue
+      const c = d.map(v => 0.1 + 0.9 * Math.pow(v / m, 0.85));
+      data.set([a[0], a[1], a[2], b[0], b[1], b[2], j / (P - 1), (j + 1) / (P - 1), c[0], c[1], c[2], 1.25], o); o += STRIDE;
+    }
+    if (flag[i] & 2) starts.push(pt(i, P - 1));
+  }
+  return { data, starts };
+}
+
+// The pathways that reach the medulla carry on as the spinal cord: the same strands gather, thin out and become the line.
+function buildCord() {
+  const st = G.cordStarts, n = st.length; if (!n) return new Float32Array(0);
+  let xa = 0, ya = 0, za = 0; for (const p of st) { xa += p[0]; ya += p[1]; za += p[2]; } xa /= n; ya /= n; za /= n;
+  const zEnd = ZC - (G.fieldH - G.yAnchor) / G.k, total = za - zEnd, R = rng(5), segs = [];
+  const hand = 80 / G.k;                                  // the last 80 px cross-fade into the CSS line below
+  const strand = (p, life, main, tint) => {
+    let prev = null, pu = 0;
+    for (let u = 0; u <= life + 0.01; u += 3) {
+      const e = sstep(6, 200, u), g = sstep(0, 150, u);
+      const spread = main ? 0 : (1 - g) * 0.97 + 0.03 * (1 - sstep(150, 420, u));
+      const z = p[2] - u, pt = [lerp(xa, 0, e) + (p[0] - xa) * spread, lerp(ya, YC, e) + (p[1] - ya) * spread, z];
+      if (prev) {
+        const um = (u + pu) / 2, red = sstep(70, 0.62 * total, um);
+        let a = main ? 0.7 * sstep(15, 150, um) * clamp((total - um) / hand, 0, 1) : 0.2 * (1 - sstep(life - 50, life, um));
+        const c = [lerp(tint[0], 1, red) * a, lerp(tint[1], 0.137, red) * a, lerp(tint[2], 0.22, red) * a];
+        segs.push(prev[0], prev[1], prev[2], pt[0], pt[1], pt[2], 1 + pu / CORD_RATE, 1 + u / CORD_RATE, c[0], c[1], c[2], main ? -3 : 1.15);
+      }
+      prev = pt; pu = u;
+    }
+  };
+  const step = Math.max(1, Math.floor(n / 170));
+  for (let i = 0; i < n; i += step) strand(st[i], 50 + Math.pow(R(), 1.7) * total * 0.55, false, [0.18 + 0.25 * R(), 0.35 + 0.3 * R(), 1]);
+  strand([xa, ya, za], total, true, [0.45, 0.6, 1]);
+  G.sEnd = 1 + total / CORD_RATE;
+  return new Float32Array(segs);
+}
+
+/* ---------- layout ---------- */
+function layout() {
+  const bodyTop = document.body.getBoundingClientRect().top;
+  const W = mainEl.offsetWidth, H = home.offsetHeight;
+  const k = Math.min(H * 0.62 / 154, W * 0.94 / 182, 4.6), cx = W / 2, yAnchor = Math.round(H * 0.47);
+  const hr = heartEl.getBoundingClientRect(), hTop = hr.top - bodyTop;
+  Object.assign(G, { W, H, k, cx, yAnchor, px: cx, py: yAnchor + (ZC - 4) * k, r0: 80 * k * 0.55, yS: yAnchor + (ZC + 72) * k, fieldH: Math.round(hTop + hr.height * 0.45) });
+  nameEl.style.top = yAnchor + 'px';
+  G.sc = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(7e6 / (W * G.fieldH)));
+  stageC.width = Math.round(W * G.sc); stageC.height = Math.round(G.fieldH * G.sc);
+  stageC.style.width = W + 'px'; stageC.style.height = G.fieldH + 'px';
+  if (G.cord) G.cord.set(buildCord());
+  G.arrive = (G.sEnd || 5) / SPEED;                      // seconds from a beat to its impulse reaching the heart
+  sizeSmoke(); sizeHeart();
+  const lr = $('#last').getBoundingClientRect(), endY = lr.top - bodyTop + lr.height / 2 + 70;
+  track.style.top = G.yS + 'px'; track.style.height = Math.max(0, endY - G.yS) + 'px';
+  spine.style.top = (G.fieldH - 80) + 'px'; spine.style.height = Math.max(0, endY - G.fieldH + 80 + 160) + 'px';
+}
+
+/* ---------- draw ---------- */
+function drawStage(t, n, e) {
+  const gl = sg; if (!G.ready) return;
+  gl.viewport(0, 0, stageC.width, stageC.height); gl.clearColor(0, 0, 0, 0); gl.clearDepth(1); gl.depthMask(true); gl.colorMask(true, true, true, true);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  const yaw = YAW != null ? YAW : 0.16 + 0.26 * Math.sin(t * 0.21);
+  const common = pr => { gl.useProgram(pr.p); gl.uniform4f(pr.u.uView, Math.cos(yaw), Math.sin(yaw), G.k, 0); gl.uniform2f(pr.u.uAnchor, G.cx, G.yAnchor); gl.uniform2f(pr.u.uRes, G.W, G.fieldH); };
+  const heads = [0, 1, 2, 3].map(i => { const a = t - (n - i) * T; return n < 0 ? -1 : a * SPEED; });
+
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.disable(gl.DEPTH_TEST);
+  common(G.linePr); gl.uniform4f(G.linePr.u.uHead, heads[0], heads[1], heads[2], heads[3]);
+  gl.uniform1f(G.linePr.u.uDepthFade, 1); gl.uniform1f(G.linePr.u.uGain, (0.04 + 0.018 * e) * clamp(G.k / 3.5, 0.45, 1.15));   // fewer pixels per fibre on a small screen, so less light per fibre gl.uniform1f(G.linePr.u.uPulseW, 0.055);
+  gl.uniform1f(G.linePr.u.uSeg, G.seg); gl.uniform1f(G.linePr.u.uBeatN, n % 97); gl.uniform1f(G.linePr.u.uFire, 0.07);
+  gl.bindVertexArray(G.tracts.vao); if (!NO_TRACTS) gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, G.tracts.count);
+
+  common(G.mesh.pr); gl.uniform1f(G.mesh.pr.u.uBeat, e); gl.bindVertexArray(G.mesh.vao);
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.colorMask(false, false, false, false); gl.disable(gl.BLEND);
+  gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);
+  gl.drawElements(gl.TRIANGLES, G.mesh.count, gl.UNSIGNED_INT, 0);              // depth only: hides the far side of the brain
+  gl.disable(gl.POLYGON_OFFSET_FILL); gl.colorMask(true, true, true, true); gl.depthMask(false); gl.depthFunc(gl.LEQUAL); gl.enable(gl.BLEND);
+  if (!NO_MESH) gl.drawElements(gl.TRIANGLES, G.mesh.count, gl.UNSIGNED_INT, 0);
+
+  gl.disable(gl.DEPTH_TEST);
+  common(G.linePr); gl.uniform1f(G.linePr.u.uGain, 1); gl.uniform1f(G.linePr.u.uPulseW, 0.42); gl.uniform1f(G.linePr.u.uFire, 2); gl.uniform1f(G.linePr.u.uDepthFade, 0);
+  gl.bindVertexArray(G.cord.vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, G.cord.count);
+  gl.bindVertexArray(null);
+}
+
+/*__SMOKE__*/
+
+/*__HEART__*/
+
+let last = '', tick = 0;
+function label() {
+  const my = markerEl.getBoundingClientRect().top; let cur = 'Scroll';
+  for (const s of secs) if (s.getBoundingClientRect().top <= my + 2) cur = s.dataset.label;
+  if (cur !== last) { mlabel.textContent = cur; last = cur; }
+}
+function frame(now) {
+  if (!reduce) requestAnimationFrame(frame);
+  const t = reduce ? T * 0.03 : FROZEN != null ? 40 * T + BURST_DELAY + FROZEN : now / 1000;
+  const sy = -document.body.getBoundingClientRect().top, vh = window.innerHeight;
+  const n = Math.floor(t / T), e = lubdub((t % T) / T);
+  if (sy < G.fieldH + 80) { drawStage(t, reduce ? -1 : n, e); if (!reduce && !NO_SMOKE) drawSmoke(t, n, sy); }
+  if (sy + vh > G.fieldH - 500 && sy < G.fieldH + 600) drawHeart(t);          // the heart fires as each impulse arrives
+  if ((tick++ & 7) === 0) label();
+}
+
+let lw = 0, lh = 0, rt;
+function relayout() { lw = mainEl.offsetWidth; lh = home.offsetHeight; layout(); if (reduce) frame(0); }
+addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (mainEl.offsetWidth !== lw || Math.abs(home.offsetHeight - lh) > 90) relayout(); }, 180); });
+addEventListener('load', relayout);
+addEventListener('scroll', label, { passive: true });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
+relayout();
+
+(async () => {
+  if (!sg) { console.warn('WebGL2 is not available: the stage is not drawn.'); return; }
+  const get = async (u, kind) => { const r = await fetch(u, { cache: 'no-cache' }); if (!r.ok) throw new Error(u + ' ' + r.status); return r[kind](); };
+  // The binary data is served as .bin by a normal web server. The preview host only serves text, so it carries a base64 copy.
+  const b64 = async name => { const s = atob((await get(`data/${name}.b64.txt`, 'text')).trim()), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; };
+  const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && Q.get('b64') == null;
+  const bin = name => local ? get(`data/${name}.bin`, 'arrayBuffer') : b64(name).catch(() => get(`data/${name}.bin`, 'arrayBuffer'));
+  const [bj, bb, tj, tb, hj, hb] = await Promise.all([get('data/brain.json', 'json'), bin('brain'), get('data/tracts.json', 'json'), bin('tracts'), get('data/heart.json', 'json'), bin('heart')]);
+  initHeart(hj, hb);
+  G.mesh = buildMesh(sg, bj, bb);
+  G.linePr = program(sg, LINE_VS, LINE_FS);
+  const tr = buildTracts(tj, tb);
+  G.tracts = lineSet(sg, G.linePr); G.tracts.set(tr.data);
+  G.seg = tj.points - 1; G.cordStarts = tr.starts; G.cord = lineSet(sg, G.linePr);
+  G.ready = true; relayout();
+  if (reduce) { frame(0); addEventListener('scroll', () => frame(0), { passive: true }); }
+})().catch(err => console.error(err));
+if (!reduce) requestAnimationFrame(frame);

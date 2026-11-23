@@ -1,0 +1,77 @@
+/* ---------- smoke shockwave (WebGL): a ragged white front that bursts out evenly, frays into wisps and fades ---------- */
+const smokeC = $('#smoke');
+const gl = smokeC.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false });
+const SM = { s: 0.5, ok: false, u: {} };
+const SMOKE_FS = `
+precision highp float;
+uniform vec2 uRes, uC; uniform float uR0, uRmax, uFade0, uFade1; uniform vec2 uAge, uSeed;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
+  return mix(mix(hash(i), hash(i+vec2(1.,0.)), f.x), mix(hash(i+vec2(0.,1.)), hash(i+vec2(1.,1.)), f.x), f.y); }
+float fbm(vec2 p){ float a = .5, s = 0.; for (int i = 0; i < 5; i++){ s += a*noise(p); p = p*2.03 + vec2(17.1, 9.2); a *= .5; } return s; }
+vec3 wheel(float ang){ float h = fract(265./360. + ang/6.2831853); return clamp(abs(fract(h + vec3(0., 2./3., 1./3.))*6. - 3.) - 1., 0., 1.); }
+vec4 burst(vec2 p, float age, float seed){
+  const float LIFE = 4.2;
+  if (age < 0. || age > LIFE) return vec4(0.);
+  float t = age/LIFE;
+  float R = mix(uR0, uRmax, 1. - pow(1. - t, 2.2));           // leaves fast, slows as it spreads
+  vec2 d = p - uC; float r = length(d); vec2 dir = d/max(r, 1e-3);
+  float rag = fbm(dir*2.6 + seed + vec2(0., age*.12)) - .5;   // the front wanders with direction: tongues and bays
+  float rag2 = fbm(dir*7. + seed*1.7 - vec2(age*.2, 0.)) - .5;
+  float rag3 = fbm(dir*19. + seed*2.3) - .5;
+  float Rn = R*(1. + .36*rag + .16*rag2 + .06*rag3);
+  float x = r/Rn;                                            // 1 at the front
+  float edge = smoothstep(.93, 1., x)*smoothstep(1.035, 1., x);                // the thin leading edge
+  float shell = smoothstep(.5 + .12*t, .97, x)*smoothstep(1.03, .995, x);     // smoke hangs just behind it; the centre stays hollow
+  vec2 q = d/R*4.2 + seed;                                   // noise rides the expanding wave, so wisps stretch with it
+  vec2 w = vec2(fbm(q + vec2(0., age*.35)), fbm(q + vec2(5.2, -age*.3)));
+  float n = fbm(q*1.5 + 3.4*w), n2 = fbm(q*4.5 + 4.*w + 7.);
+  float wisps = pow(1. - abs(2.*n - 1.), 6.) + .6*pow(1. - abs(2.*n2 - 1.), 8.);   // ridged noise reads as filaments
+  float th = mix(.16, .62, t);                                                // filaments thin out as the smoke ages
+  float streak = pow(noise(dir*46. + seed), 6.)*smoothstep(.3, .9, x)*smoothstep(1.02, .9, x)*pow(1. - t, 3.);
+  float dens = shell*(.05 + .95*smoothstep(th, th + .5, wisps)) + edge*(.2 + 1.1*smoothstep(.08, .7, wisps)) + streak*.4;
+  float fade = pow(1. - t, 1.5)*smoothstep(0., .03, t);
+  float core = exp(-r*r/(uR0*uR0*.35))*pow(1. - t, 10.);      // the flash at launch
+  float I = 1. - exp(-1.7*(dens*fade + core));               // soft shoulder, so dense smoke never clips to a flat white
+  float hot = clamp(edge*1.5 + core, 0., 1.);
+  vec3 tint = mix(vec3(1.), wheel(atan(d.y, d.x)), .5);       // white-hot front; a wash of the brain's colour in the smoke behind it
+  return vec4(mix(tint, vec3(1.), hot)*I, I);
+}
+void main(){
+  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+  vec4 c = burst(p, uAge.x, uSeed.x) + burst(p, uAge.y, uSeed.y);
+  c *= 1. - smoothstep(uFade0, uFade1, p.y);
+  gl_FragColor = vec4(min(c.rgb, vec3(1.)), clamp(max(c.r, max(c.g, c.b)), 0., 1.));
+}`;
+function initSmoke() {
+  if (!gl) return;
+  const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o)); return o; };
+  const pr = gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 a; void main(){ gl_Position = vec4(a, 0., 1.); }'));
+  gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, SMOKE_FS)); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(pr)); return; }
+  gl.useProgram(pr);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const a = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+  for (const n of ['uRes', 'uC', 'uR0', 'uRmax', 'uFade0', 'uFade1', 'uAge', 'uSeed']) SM.u[n] = gl.getUniformLocation(pr, n);
+  gl.disable(gl.BLEND); SM.ok = true;
+}
+function sizeSmoke() {
+  if (!gl) return;
+  SM.h = Math.min(G.fieldH, Math.round(G.H * 1.9));
+  smokeC.width = Math.round(G.W * SM.s); smokeC.height = Math.round(SM.h * SM.s);
+  smokeC.style.width = G.W + 'px'; smokeC.style.height = SM.h + 'px';
+}
+const BURST_EVERY = 4, BURST_DELAY = 0.36; // the brain flashes on every beat; the smoke burst goes on every fourth
+function drawSmoke(t, n, sy) {
+  if (!SM.ok || sy > SM.h) return;
+  const b = Math.floor(n / BURST_EVERY) * BURST_EVERY, s = SM.s;
+  const age = i => t - ((b - i * BURST_EVERY) * T + BURST_DELAY), seed = i => (((b - i * BURST_EVERY) * 0.6180339887) % 1) * 40;
+  gl.viewport(0, 0, smokeC.width, smokeC.height);
+  gl.uniform2f(SM.u.uRes, smokeC.width, smokeC.height); gl.uniform2f(SM.u.uC, G.px * s, G.py * s);
+  gl.uniform1f(SM.u.uR0, G.r0 * s); gl.uniform1f(SM.u.uRmax, (0.62 * Math.hypot(G.W, G.H) + 40) * s);
+  gl.uniform1f(SM.u.uFade0, (SM.h - 0.9 * G.H) * s); gl.uniform1f(SM.u.uFade1, (SM.h - 0.22 * G.H) * s);   // the smoke is gone well above the heart
+  gl.uniform2f(SM.u.uAge, age(0), age(1)); gl.uniform2f(SM.u.uSeed, seed(0), seed(1));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+initSmoke();
