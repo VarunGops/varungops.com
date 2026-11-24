@@ -81,7 +81,7 @@ function frame(now) {
 let lw = 0, lh = 0, rt;
 function relayout() { if (lost.size || mainEl.offsetWidth < 2 || home.offsetHeight < 2) return; lw = mainEl.offsetWidth; lh = home.offsetHeight; layout(); if (reduce) still(); }   // nothing to lay out on a page with no size
 // a phone's address bar showing or hiding changes the height a little: that does not rebuild the stage
-addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (geom && (mainEl.offsetWidth !== lw || Math.abs(home.offsetHeight - lh) > 90)) relayout(); }, 180); });
+addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!geom || mainEl.offsetWidth !== lw || Math.abs(home.offsetHeight - lh) > 90) relayout(); }, 180); });
 
 const webgl2 = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
 

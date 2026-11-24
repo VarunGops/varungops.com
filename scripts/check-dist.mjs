@@ -43,6 +43,7 @@ for (const { art, path } of STOPS.filter(s => s.art)) {
   if (full >= 3 * 1048576) problems.push(`${path} would load ${mb(full)} on a desktop, over the 3 MB page limit`);
   if (lite >= 2 * 1048576) problems.push(`${path} would load ${mb(lite)} on a phone, over the 2 MB page limit`);
   if (!rel.includes(`still/${art}.webp`)) problems.push(`no still image for the ${art} (public/still/${art}.webp): run npm run stills`);
+  if (art !== 'heart' && !rel.includes(`still/${art}-phone.webp`)) problems.push(`no phone still for the ${art} (public/still/${art}-phone.webp): run npm run stills`);
 }
 
 if (problems.length) { for (const p of [...new Set(problems)]) console.error('✘ ' + p); process.exit(1); }

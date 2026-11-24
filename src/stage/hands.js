@@ -5,7 +5,7 @@
    Millimetres, +y up, +z towards the viewer. */
 import { program } from './gl.js';
 import { handPose } from './handpose.js';
-import { createRope, stepRope, ropePoints } from './ropes.js';
+import { createRope, stepRope, ropePoints, catchUp } from './ropes.js';
 
 const CAMERA = 640, NEAR = 40, FAR = 2000, SEG = 16, STEP = 1 / 60;
 
@@ -110,10 +110,10 @@ export function createHands(canvas, mesh, json, { preserve = false } = {}) {
     },
     draw(t, fixed = {}) {
       const time = fixed.age != null ? fixed.age : t, pose = handPose(time);
-      if (!ropes) { start(pose); simT = time; }
-      if (fixed.age != null) simT = time;
-      else {                                                                // fixed steps, however fast the frames come
-        if (time - simT > 0.5) simT = time - 0.5;
+      const c = catchUp(ropes ? simT : null, time);
+      if (c.rehang) start(pose);
+      simT = c.from;
+      if (fixed.age == null) {                                              // fixed steps, however fast the frames come
         while (simT + STEP <= time) { simT += STEP; const e = ends(handPose(simT)); ropes.forEach((r, i) => stepRope(r, e[i][0], e[i][1], STEP)); }
       }
       ropes.forEach((r, i) => { const P = ropePoints(r); for (let k = 0; k < SEG; k++) seg.set(P.subarray(k * 3, k * 3 + 6), (i * SEG + k) * 6); });

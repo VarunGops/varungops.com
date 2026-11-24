@@ -34,3 +34,10 @@ function substep(rope, a, b, dt, gravity) {
 }
 
 export const ropePoints = rope => rope.pos;
+
+// Where the simulation picks up at time t. After more than half a second without frames (another tab, scrolled away,
+// back from the cache) the hands have moved on: re-hang the strings at the new pose instead of dragging them there.
+export function catchUp(simT, t, gap = 0.5) {
+  if (simT == null || t - simT > gap) return { rehang: true, from: t };
+  return { rehang: false, from: simT };
+}

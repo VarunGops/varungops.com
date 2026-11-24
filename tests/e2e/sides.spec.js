@@ -147,8 +147,8 @@ const noWebGL = () => { const g = HTMLCanvasElement.prototype.getContext; HTMLCa
 const countRaf = () => { window.__raf = 0; const r = requestAnimationFrame; window.requestAnimationFrame = f => { window.__raf++; return r(f); }; };
 
 for (const [name, path, still, credit, lit] of [
-  ['eyes', '/now/', /eyes/i, /Human Reference Atlas[\s\S]*Visible Human Male/, 'r + g + b > 150'],
-  ['hands', '/clinical-experience/', /hands/i, /plaster casts of Abraham Lincoln[\s\S]*CC0/, 'Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && r > 60'],
+  ['eyes', '/now/', /eyes/i, /Eyes adapted from the Human Reference Atlas[\s\S]*Visible Human Male/, 'r + g + b > 150'],
+  ['hands', '/clinical-experience/', /hands/i, /Hands adapted from 3D scans of plaster casts of Abraham Lincoln[\s\S]*CC0/, 'Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && r > 60'],
 ]) {
   test.describe(`the ${name}`, () => {
     test.describe.configure({ timeout: 240000 });
@@ -189,6 +189,7 @@ for (const [name, path, still, credit, lit] of [
       await expect(page.locator('html')).toHaveAttribute('data-stage', /live|still|failed/, { timeout: 120000 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
       expect(asked).toContain(`/data/${name}-lite.bin`);
+      expect(await page.locator('img.still-art').evaluate(i => i.currentSrc)).toContain(`/still/${name}-phone.webp`);   // framed as the phone draws it
       await expect(page.getByRole('contentinfo')).toContainText(credit);
     });
   });

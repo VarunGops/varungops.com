@@ -51,3 +51,10 @@ test('nothing is drawn once the stage and heart are scrolled away', async ({ pag
   const before = await page.evaluate(() => window.__draws); await page.waitForTimeout(1000);
   expect(await page.evaluate(() => window.__draws)).toBe(before);
 });
+test('a page that has no size when the stage starts still goes live once it gets one', async ({ page }) => {
+  await page.route(/\/\?tracts=0$/, async r => { const res = await r.fetch(); r.fulfill({ response: res, body: (await res.text()).replace('</head>', '<style id="hide">main{display:none}</style></head>') }); });
+  await page.goto('/?tracts=0'); await page.waitForTimeout(3000);
+  await expect(page.locator('html')).not.toHaveAttribute('data-stage', 'live');
+  await page.evaluate(() => { document.getElementById('hide').remove(); dispatchEvent(new Event('resize')); });
+  await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+});

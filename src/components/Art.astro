@@ -17,7 +17,10 @@ const ALT = {
   </div>
 ) : (
   <div class="art art-wide" data-art={kind}>
-    <img class="still still-art" src={`/still/${kind}.webp`} alt={ALT[kind]} width="1280" height="640" decoding="async" />
+    <picture>
+      <source media="(max-width: 699px)" srcset={`/still/${kind}-phone.webp`} />
+      <img class="still still-art" src={`/still/${kind}.webp`} alt={ALT[kind]} width="1280" height="640" decoding="async" />
+    </picture>
     <canvas id="art" class="art-canvas" aria-hidden="true"></canvas>
   </div>
 )}

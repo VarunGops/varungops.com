@@ -73,3 +73,12 @@ describe('the strings', () => {
     for (let i = 0; i < 16; i++) expect(Math.abs(Math.hypot(P[i * 3 + 3] - P[i * 3], P[i * 3 + 4] - P[i * 3 + 1], P[i * 3 + 5] - P[i * 3 + 2]) / rest - 1)).toBeLessThan(0.03);
   });
 });
+
+describe('the strings after a pause', () => {
+  it('are hung afresh rather than stepped across a gap', async () => {
+    const { catchUp } = await import('../../src/stage/ropes.js');
+    expect(catchUp(10, 10.1)).toEqual({ rehang: false, from: 10 });
+    expect(catchUp(10, 14)).toEqual({ rehang: true, from: 14 });          // back from another tab: no whip
+    expect(catchUp(null, 3)).toEqual({ rehang: true, from: 3 });          // first frame
+  });
+});
