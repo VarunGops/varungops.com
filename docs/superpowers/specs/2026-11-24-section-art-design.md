@@ -30,7 +30,7 @@ The home page makes one argument with real anatomy: a brain in colour, an impuls
 |---|---|---|---|---|
 | About | The heart, beating on its own | Already built | BodyParts3D | CC BY-SA |
 | Now | A large pair of eyes scanning the screen, with fine strands fanning out of the pupils | What he is looking at now | Human Reference Atlas eye, left and right (NIH 3D 3DPX-020998, 3DPX-020999), from the Visible Human Male | CC BY 4.0 |
-| Clinical Experience | Two hands across from each other, moving at angles, joined by tangled red strings | Hands-on clinical work | See "Hands: the open choice" below | CC0 or CC BY |
+| Clinical Experience | Two hands across from each other, moving at angles, joined by tangled red strings | Hands-on clinical work | 3D scans of plaster casts of real hands, left and right (Smithsonian National Portrait Gallery, S/NPG.71.6) | CC0 |
 | Research | A single human neuron whose branches light from the cell body out to their tips | A question branching into its parts | H01 human cortex, one of the 104 proofread neurons (Shapson-Coe et al., Science 2024) | CC BY 4.0 |
 | Teaching | Two real neurons that connect: a signal runs down one, crosses at the real synapse between them, and runs on through the other | Passing it on | H01, a connected pair and their synapse from the released synapse table | CC BY 4.0 |
 | Writing | The arcuate fasciculus, the tract joining the brain's language areas, inside a faint outline of the brain, with light travelling along it | Language | HCP-1065 tract atlas and MNI brain, as on the home page | CC BY-SA 4.0 / McGill |
@@ -41,14 +41,14 @@ Teaching changed in one respect from the idea he approved: he was offered "small
 
 Writing and Collaborate pages are not public yet (Writing has no pieces, Collaborate is a draft). Their art is built last.
 
-## Hands: the open choice
+## Hands: the choice
 
-Two real sources exist. This is Dr Rajan's choice, asked separately:
+Two real sources were offered to Dr Rajan:
 
 1. **Plaster casts of real hands, both left and right** (Smithsonian National Portrait Gallery, S/NPG.71.6, CC0, about 300,000 triangles). Fine skin detail, knuckles, creases and veins; the fingers are naturally curled, close to his pencil reference. They are the 1860 casts of Abraham Lincoln's hands, and the credit line names him.
 2. **An anatomical template of the adult hand** averaged from MRI scans of 27 healthy hands (NIH 3D 3DPX-017237, CC BY). Anonymous, but averaging smooths away creases and the pose is not stated (likely flat, as scanned).
 
-Recommendation: the casts, for the detail and the pose. Both are rigid: fingers do not bend, the hands move as wholes.
+**Decided 24 Nov 2026: the casts.** Both are rigid: the fingers do not bend, the hands move as wholes. Credit line on the Clinical Experience page: "Hands from 3D scans of plaster casts of Abraham Lincoln's hands, after Leonard Wells Volk, 1860. National Portrait Gallery, Smithsonian Institution, CC0." (CC0 needs no credit; it is given anyway, as with every other source.)
 
 ## How each piece behaves
 
