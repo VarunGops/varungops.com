@@ -13,11 +13,11 @@ const wave = (t, period, phase = 0) => Math.sin(TAU * t / period + phase);
 export function handPose(t) {
   const upper = {
     m: Float32Array.from(mul(rz(0.44 + 0.16 * wave(t, 11)), mul(ry(0.26 * wave(t, 15, 1)), rx(0.18 * wave(t, 13, 2))))),
-    p: [-48 + 16 * wave(t, 12), 142 + 10 * wave(t, 9.5, 0.5), 12 * wave(t, 17)],
+    p: [-58 + 16 * wave(t, 12), 188 + 10 * wave(t, 9.5, 0.5), 12 * wave(t, 17)],
   };
   const lower = {
     m: Float32Array.from(mul(rz(0.44 + 0.16 * wave(t, 10, 3)), mul(ry(0.26 * wave(t, 14, 4)), rx(0.18 * wave(t, 16, 5))))),
-    p: [48 + 16 * wave(t, 13, 2), -142 + 10 * wave(t, 11, 1.5), 12 * wave(t, 15, 2)],
+    p: [58 + 16 * wave(t, 13, 2), -188 + 10 * wave(t, 11, 1.5), 12 * wave(t, 15, 2)],
   };
   return [upper, lower];
 }
