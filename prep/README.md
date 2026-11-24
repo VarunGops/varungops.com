@@ -43,7 +43,6 @@ BodyParts3D 4.0 has no outer ventricular wall, only the two ventricular cavities
 - MNI ICBM 152 2009c template, Copyright (C) 1993-2004 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University.
 - Tracts adapted from the HCP-1065 tractography atlas (Yeh FC, Nat Commun 13, 4933, 2022), CC BY-SA 4.0. Data were provided by the Human Connectome Project, WU-Minn Consortium.
 - Heart adapted from BodyParts3D, (c) The Database Center for Life Science.
-
 - Eyes from the Human Reference Atlas 3D reference organs (NIH 3D 3DPX-020998 and 3DPX-020999), created from the Visible Human Male, National Library of Medicine. CC BY 4.0.
 - Hands from 3D scans of plaster casts of Abraham Lincoln's hands, after Leonard Wells Volk, 1860. National Portrait Gallery, Smithsonian Institution, CC0.
 
