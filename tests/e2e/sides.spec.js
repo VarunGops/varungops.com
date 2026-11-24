@@ -220,7 +220,13 @@ test.describe('beyond the box', () => {
   test('the strings run on past the hands, across the screen', async ({ page }) => {
     await page.goto('/clinical-experience/?hage=7&hyaw=0');
     await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
-    expect(await belowBox(page, 'r > 60 && g < 40 && b < 50')).toBeGreaterThan(10);
+    const atEdges = await page.evaluate(() => {           // red in the outer tenth of the screen each side, read at full size: the strings are a pixel wide
+      const c = document.querySelector('#art'), o = document.createElement('canvas'); o.width = c.width; o.height = c.height; const x = o.getContext('2d'); x.drawImage(c, 0, 0);
+      const w = Math.round(c.width * 0.1); let n = 0;
+      for (const x0 of [0, c.width - w]) { const d = x.getImageData(x0, 0, w, c.height).data; for (let k = 0; k < d.length; k += 4) if (d[k] > 80 && d[k + 1] < 60 && d[k + 2] < 70) n++; }
+      return n;
+    });
+    expect(atEdges).toBeGreaterThan(40);
   });
   test('the fibres from the eyes sweep out across the screen', async ({ page }) => {
     await page.goto('/now/?hage=38&hyaw=0');                    // a moment when the scan points down and to the right

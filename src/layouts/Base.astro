@@ -7,8 +7,8 @@ import '@fontsource/ibm-plex-mono/500.css';
 import '../styles/global.css';
 
 import { SIDES, direction } from '../lib/stops.js';
-interface Props { title: string; description: string; person?: boolean; side?: 'left' | 'right' }
-const { title, description, person = false, side } = Astro.props;
+interface Props { title: string; description: string; person?: boolean; side?: 'left' | 'right'; art?: string | null }
+const { title, description, person = false, side, art } = Astro.props;
 // Page-to-page slides. Runs in the head so it is listening before the browser swaps or reveals a page.
 // pageswap (old page) and pagereveal (new page) say which page we came from; direction() picks the way it moves.
 // The heart is named only between home and About, so it glides from one to the other instead of sliding away.
@@ -45,7 +45,7 @@ const ld = {
 };
 ---
 <!doctype html>
-<html lang="en-GB" data-side={side}>
+<html lang="en-GB" data-side={side} data-art-page={art || undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />

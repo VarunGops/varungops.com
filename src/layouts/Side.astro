@@ -7,7 +7,7 @@ interface Props { stop: { id: string; label: string; side: 'left' | 'right'; art
 const { stop, heading, kicker, description } = Astro.props;
 const back = stop.side === 'right' ? '← Varun Gopal Rajan' : 'Varun Gopal Rajan →';
 ---
-<Base title={`${stop.label} · Varun Gopal Rajan`} description={description} side={stop.side}>
+<Base title={`${stop.label} · Varun Gopal Rajan`} description={description} side={stop.side} art={stop.art}>
   <div class="side-top gutter"><a class="home-link" href={`/#${stop.id}`} data-back>{back}</a></div>
   {stop.art && <Art kind={stop.art} />}
   <article class="side-body gutter">

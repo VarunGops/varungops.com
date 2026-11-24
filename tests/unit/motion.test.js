@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { scanAt } from '../../src/stage/scan.js';
-import { handPose, tautLine } from '../../src/stage/handpose.js';
+import { handPose, rayOut } from '../../src/stage/handpose.js';
+import { createRope, stepRope, ropePoints, catchUp } from '../../src/stage/ropes.js';
 
 describe('the scan of the fibres from the eyes', () => {
   const run = s => Array.from({ length: s * 60 }, (_, i) => scanAt(i / 60));
@@ -8,9 +9,13 @@ describe('the scan of the fibres from the eyes', () => {
   it('always points somewhere: a unit direction on the screen', () => {
     for (const { dir } of run(30)) expect(Math.hypot(dir[0], dir[1])).toBeCloseTo(1, 6);
   });
-  it('sweeps the whole screen within a minute', () => {
-    const seen = new Set(run(60).map(({ angle }) => Math.floor((((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) / (Math.PI / 4))));
-    expect(seen.size).toBe(8);                       // every eighth of the circle
+  it('sways either side of straight up within a minute, never tipping over sideways', () => {
+    const deg = run(60).map(({ dir }) => Math.atan2(dir[1], dir[0]) * 180 / Math.PI);
+    expect(Math.min(...deg)).toBeLessThan(65); expect(Math.max(...deg)).toBeGreaterThan(115);   // a real sway each way
+    expect(Math.min(...deg)).toBeGreaterThan(50); expect(Math.max(...deg)).toBeLessThan(130);   // but the fountain stays upright
+  });
+  it('never points down into the words below the eyes', () => {
+    for (const { dir } of run(300)) expect(dir[1]).toBeGreaterThan(0.3);
   });
   it('moves smoothly, never in jumps', () => {
     const r = run(90);
@@ -38,17 +43,38 @@ describe('the hands', () => {
   it('is the same every time', () => { expect(handPose(12.5)).toEqual(handPose(12.5)); });
 });
 
-describe('the strings', () => {
-  const a = [10, 80, 5], b = [-30, -90, 25];
-  it('run straight through both anchors and on past them', () => {
-    const [p, q] = tautLine(a, b, { reach: 1500, zNear: 560, zFar: -1500 });
-    const along = v => [(v[0] - p[0]) / (q[0] - p[0]), (v[1] - p[1]) / (q[1] - p[1])];
-    for (const v of [a, b]) { const [s, t] = along(v); expect(s).toBeCloseTo(t, 6); expect(s).toBeGreaterThan(0); expect(s).toBeLessThan(1); }
-    expect(Math.hypot(p[0] - a[0], p[1] - a[1], p[2] - a[2])).toBeGreaterThan(1000);
-    expect(Math.hypot(q[0] - b[0], q[1] - b[1], q[2] - b[2])).toBeGreaterThan(1000);
+describe('the strings held between the hands', () => {
+  const settle = (rope, a, b, s) => { for (let i = 0; i < s * 60; i++) stepRope(rope, a, b, 1 / 60); return ropePoints(rope); };
+  it('stay tied to both ends', () => {
+    const a = [0, 100, 0], b = [60, -100, 10], r = createRope(a, b, 16, 0.05), P = settle(r, a, b, 1);
+    expect([...P.slice(0, 3)]).toEqual(a); expect([...P.slice(-3)]).toEqual(b);
+  });
+  it('sag under gravity when slack', () => {
+    const a = [-100, 0, 0], b = [100, 0, 0], r = createRope(a, b, 16, 0.08), P = settle(r, a, b, 2);
+    expect(P[8 * 3 + 1]).toBeLessThan(-5);
+  });
+  it('do not stretch', () => {
+    const a = [-100, 0, 0], b = [100, 0, 0], r = createRope(a, b, 16, 0.08), P = settle(r, a, b, 2), rest = 200 * 1.08 / 16;
+    for (let i = 0; i < 16; i++) expect(Math.abs(Math.hypot(P[i * 3 + 3] - P[i * 3], P[i * 3 + 4] - P[i * 3 + 1], P[i * 3 + 5] - P[i * 3 + 2]) / rest - 1)).toBeLessThan(0.03);
+  });
+  it('are hung afresh after a pause rather than stepped across it', () => {
+    expect(catchUp(10, 10.1)).toEqual({ rehang: false, from: 10 });
+    expect(catchUp(10, 14)).toEqual({ rehang: true, from: 14 });
+    expect(catchUp(null, 3)).toEqual({ rehang: true, from: 3 });
+  });
+});
+
+describe('the strings running out from the hands', () => {
+  const opts = { reach: 3000, zNear: 550, zFar: -3000 };
+  it('start at the hand and run taut, straight out', () => {
+    const a = [10, 80, 5], d = [0.6, 0.8, 0], [p, q] = rayOut(a, d, opts);
+    expect(p).toEqual(a);
+    const v = q.map((x, k) => x - a[k]), n = Math.hypot(...v);
+    expect(n).toBeGreaterThan(2500);
+    v.forEach((x, k) => expect(x / n).toBeCloseTo(d[k], 6));
   });
   it('stop short of the camera', () => {
-    const [p, q] = tautLine([0, 0, 0], [0, -10, 40], { reach: 1500, zNear: 560, zFar: -1500 });
-    for (const v of [p, q]) { expect(v[2]).toBeLessThanOrEqual(560 + 1e-6); expect(v[2]).toBeGreaterThanOrEqual(-1500 - 1e-6); }
+    const [, q] = rayOut([0, 0, 0], [0, 0.2, 0.98], opts);
+    expect(q[2]).toBeLessThanOrEqual(550 + 1e-6);
   });
 });
