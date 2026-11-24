@@ -61,15 +61,17 @@ const NEED = {
 };
 const kindOf = name => name.replace('-lite', '');
 
+// One part: its .json and .bin, checked against each other.
+export async function loadPart(name, base = '/data/') {
+  const get = async init => { const [json, buf] = await Promise.all([fetchRetry(`${base}${name}.json`, 'json', 3, init), fetchRetry(`${base}${name}.bin`, 'arrayBuffer', 3, init)]); return { json, buf }; };
+  const ok = p => p.buf.byteLength >= NEED[kindOf(name)](p.json);
+  let p = await get();
+  if (!ok(p)) p = await get({ cache: 'reload' });     // once more, past any cached copy
+  if (!ok(p)) throw new RangeError(`${name}.bin is truncated`);
+  return p;
+}
+
 export async function loadAll(lite, base = '/data/') {
-  const get = async (name, init) => { const [json, buf] = await Promise.all([fetchRetry(`${base}${name}.json`, 'json', 3, init), fetchRetry(`${base}${name}.bin`, 'arrayBuffer', 3, init)]); return { json, buf }; };
-  const ok = (name, p) => p.buf.byteLength >= NEED[kindOf(name)](p.json);
-  const pair = async name => {
-    let p = await get(name);
-    if (!ok(name, p)) p = await get(name, { cache: 'reload' });     // once more, past any cached copy
-    if (!ok(name, p)) throw new RangeError(`${name}.bin is truncated`);
-    return p;
-  };
-  const [brain, tracts, heart] = await Promise.all([pair('brain'), pair(lite ? 'tracts-lite' : 'tracts'), pair('heart')]);
+  const [brain, tracts, heart] = await Promise.all([loadPart('brain', base), loadPart(lite ? 'tracts-lite' : 'tracts', base), loadPart('heart', base)]);
   return { brain, tracts, heart };
 }

@@ -1,0 +1,16 @@
+---
+import { render } from 'astro:content';
+import { ordered } from '../../lib/content.js';
+const items = await Promise.all((await ordered('research')).map(async e => ({ e, Content: (await render(e)).Content })));
+const cap = s => s[0].toUpperCase() + s.slice(1);
+---
+<ul class="items">
+  {items.map(({ e, Content }) => (
+    <li>
+      <span class="when">{cap(e.data.status)} · {e.data.when}</span><strong><a class="entry" href={`/research/${e.id}/`}>{e.data.title}</a></strong>
+      {(e.data.venue || e.data.doi) && <span class="where">{e.data.venue}{e.data.doi && <> <a href={`https://doi.org/${e.data.doi}`}>doi:{e.data.doi}</a></>}</span>}
+      <Content />
+    </li>
+  ))}
+</ul>
+<p class="small">ORCID <a href="https://orcid.org/0009-0001-4362-1531">0009-0001-4362-1531</a></p>

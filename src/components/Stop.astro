@@ -1,0 +1,12 @@
+---
+// One section on the home page: its heading and a one-line introduction. When it has a page of its own,
+// the whole block opens it, and the arrow points the way the page will slide in.
+interface Props { id: string; label: string; side: 'left' | 'right'; heading: string; kicker: string; intro?: string | null; href?: string | null }
+const { id, label, side, heading, kicker, intro, href } = Astro.props;
+---
+<section class:list={['stop', side, { open: !!href }]} id={id} data-label={label} data-side={side}><div>
+  <p class="label">{kicker}</p>
+  <h2>{href ? <a class="stretch" href={href}>{heading}</a> : heading}</h2>
+  {intro && <p class="facts">{intro}</p>}
+  {href && <span class="go" aria-hidden="true">{side === 'right' ? 'Read more →' : '← Read more'}</span>}
+</div></section>

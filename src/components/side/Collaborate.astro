@@ -1,0 +1,7 @@
+---
+import { render } from 'astro:content';
+import { section } from '../../lib/content.js';
+const { entry } = await section('collaborate');
+const { Content } = await render(entry);
+---
+<div class="prose"><Content /></div>

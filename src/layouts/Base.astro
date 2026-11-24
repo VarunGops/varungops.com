@@ -6,8 +6,36 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '../styles/global.css';
 
-interface Props { title: string; description: string; person?: boolean }
-const { title, description, person = false } = Astro.props;
+import { SIDES, direction } from '../lib/stops.js';
+interface Props { title: string; description: string; person?: boolean; side?: 'left' | 'right' }
+const { title, description, person = false, side } = Astro.props;
+// Page-to-page slides. Runs in the head so it is listening before the browser swaps or reveals a page.
+// pageswap (old page) and pagereveal (new page) say which page we came from; direction() picks the way it moves.
+// The heart is named only between home and About, so it glides from one to the other instead of sliding away.
+const transit = `(function(SIDES, direction){
+  var h = document.documentElement, K = 'vt-from';
+  var path = function(u){ try { var x = new URL(u, location.href); return x.origin === location.origin ? x.pathname : null; } catch (e) { return null; } };
+  var mark = function(dir, a, b){ if (dir) h.dataset.vt = dir; if ((a === '/' && b === '/about/') || (a === '/about/' && b === '/')) h.dataset.peer = 'about'; };
+  addEventListener('pageswap', function(e){
+    try { sessionStorage.setItem(K, location.pathname); } catch (err) {}
+    var to = e.activation && e.activation.entry && path(e.activation.entry.url);
+    if (e.viewTransition && to) mark(null, location.pathname, to);
+  });
+  addEventListener('pagereveal', function(e){
+    if (!e.viewTransition) { delete h.dataset.peer; return; }
+    var from = null;
+    try { from = path(navigation.activation.from.url); } catch (err) {}
+    if (!from) try { from = sessionStorage.getItem(K); } catch (err) {}
+    mark(direction(from, location.pathname, SIDES), from, location.pathname);
+    e.viewTransition.finished.finally(function(){ delete h.dataset.vt; delete h.dataset.peer; });
+  });
+  // "Back" from a section page returns to the same place on the home page when that is where the visitor came from
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a[data-back]');
+    if (!a || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (path(document.referrer) === '/' && history.length > 1) { e.preventDefault(); history.back(); }
+  });
+})(${JSON.stringify(SIDES)}, ${direction.toString()});`;
 const site = Astro.site ?? new URL('https://varungops.com');
 const url = new URL(Astro.url.pathname, site).href, image = new URL('/og.png', site).href;
 const ld = {
@@ -17,13 +45,14 @@ const ld = {
 };
 ---
 <!doctype html>
-<html lang="en-GB">
+<html lang="en-GB" data-side={side}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#000000" />
+    <script is:inline set:html={transit} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={url} />
     <link rel="alternate" type="application/rss+xml" title="Varun Gopal Rajan: writing" href="/rss.xml" />

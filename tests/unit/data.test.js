@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { decodeBrain, decodeTracts, stemFit, fetchRetry, loadAll } from '../../src/stage/data.js';
+import { decodeBrain, decodeTracts, stemFit, fetchRetry, loadAll, loadPart } from '../../src/stage/data.js';
 const load = n => ({ json: JSON.parse(readFileSync(`public/data/${n}.json`, 'utf8')), buf: readFileSync(`public/data/${n}.bin`).buffer.slice(0) });
 describe('anatomy data', () => {
   it('decodes the brain surface', () => { const b = load('brain'), m = decodeBrain(b.json, b.buf); expect(m.nv).toBe(74832); expect(m.index.length).toBe(149992 * 3); expect(Math.min(...m.pos.filter((_, i) => i % 3 === 2))).toBeCloseTo(-72.1, 0); });
@@ -19,6 +19,12 @@ describe('loading the anatomy files', () => {
     const d = await loadAll(false, '/data/');
     expect(d.brain.buf.byteLength).toBe(readFileSync('public/data/brain.bin').byteLength);
     expect(calls.filter(c => c[0] === 'brain.bin').map(c => c[1])).toEqual([undefined, 'reload']);
+  });
+  it('loads one part on its own, for a page that needs only the heart', async () => {
+    const calls = serve();
+    const h = await loadPart('heart', '/data/');
+    expect(h.buf.byteLength).toBe(readFileSync('public/data/heart.bin').byteLength);
+    expect([...new Set(calls.map(c => c[0]))].sort()).toEqual(['heart.bin', 'heart.json']);
   });
   it('gives up with a clear error when a file stays truncated', async () => {
     serve({ 'heart.bin': 5 });

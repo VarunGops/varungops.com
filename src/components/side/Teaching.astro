@@ -1,0 +1,13 @@
+---
+import { render } from 'astro:content';
+import { ordered } from '../../lib/content.js';
+const items = await Promise.all((await ordered('teaching')).map(async e => ({ e, Content: (await render(e)).Content })));
+---
+<ul class="items">
+  {items.map(({ e, Content }) => (
+    <li>
+      {e.data.when && <span class="when">{e.data.when}</span>}<strong>{e.data.title}</strong>{e.data.place && <span class="where">{e.data.place}</span>}
+      <Content />
+    </li>
+  ))}
+</ul>

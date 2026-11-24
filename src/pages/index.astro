@@ -2,24 +2,22 @@
 import Base from '../layouts/Base.astro';
 import Home from '../components/Home.astro';
 import About from '../components/About.astro';
-import Now from '../components/Now.astro';
-import Experience from '../components/Experience.astro';
-import Research from '../components/Research.astro';
-import Teaching from '../components/Teaching.astro';
-import Writing from '../components/Writing.astro';
-import Life from '../components/Life.astro';
-import Collaborate from '../components/Collaborate.astro';
+import Stop from '../components/Stop.astro';
 import Contact from '../components/Contact.astro';
 import Line from '../components/Line.astro';
 import Credits from '../components/Credits.astro';
+import { STOPS } from '../lib/stops.js';
+import { stopData } from '../lib/content.js';
+const data = await stopData();
 ---
 <Base person title="Varun Gopal Rajan" description="Dr Varun Gopal Rajan, doctor and MRes Clinical Sciences student at the University of Liverpool: clinical experience, research, teaching and how to get in touch.">
   <canvas id="stage" class="layer" aria-hidden="true" slot="before"></canvas>
   <canvas id="smoke" class="layer" aria-hidden="true" slot="before"></canvas>
   <Home />
-  <About />
+  <About d={data.about} />
   <div class="stops gutter">
-    <Now /><Experience /><Research /><Teaching /><Writing /><Life /><Collaborate /><Contact />
+    {STOPS.slice(1).map(s => { const d = data[s.id]; return <Stop id={s.id} label={s.label} side={s.side} heading={d.heading} kicker={d.kicker} intro={d.intro} href={d.open ? s.path : null} />; })}
+    <Contact />
   </div>
   <Credits slot="after" />
   <Line slot="after" />

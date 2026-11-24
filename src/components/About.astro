@@ -1,20 +1,16 @@
 ---
-import { section } from '../lib/content.js';
-const { entry, hidden } = await section('about');
-// His paragraphs, as written. The first two sit beside the heart; the rest run full-width beneath it.
-const paras = hidden ? [] : (entry.body || '').trim().split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
-const side = paras.slice(0, 2), more = paras.slice(2);
+// About on the home page: the heading and the one-line facts beside the heart. His paragraphs are on /about/.
+const { d } = Astro.props;
 ---
-<section class="about gutter" id="about" data-label="About">
+<section class="about gutter" id="about" data-label="About" data-side="right">
   <div class="about-l">
     <p class="label">About</p>
-    <h2>{hidden ? 'About me' : entry.data.heading}</h2>
-    {entry.data.facts && <p class="facts">{entry.data.facts}</p>}
+    <h2>{d.open ? <a class="stretch" href="/about/">{d.heading}</a> : d.heading}</h2>
+    {d.intro && <p class="facts">{d.intro}</p>}
   </div>
   <div class="heart-wrap">
     <img class="still still-heart" src="/still/heart.webp" alt="An anatomical heart drawn as a red engraving" width="800" height="1000" decoding="async" />
     <canvas id="heart" class="heart" aria-hidden="true"></canvas>
   </div>
-  <div class="about-r">{side.map(p => <p>{p}</p>)}</div>
-  {more.length > 0 && <div class="about-more">{more.map(p => <p>{p}</p>)}</div>}
+  <div class="about-r">{d.open && <a class="go" href="/about/" tabindex="-1" aria-hidden="true">Read more →</a>}</div>
 </section>

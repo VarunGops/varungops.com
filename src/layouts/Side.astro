@@ -1,0 +1,20 @@
+---
+// A section's own page. It slides in from the side its introduction sits on, and the way back points home.
+import Base from './Base.astro';
+import Credits from '../components/Credits.astro';
+import HeartArt from '../components/HeartArt.astro';
+interface Props { stop: { id: string; label: string; side: 'left' | 'right'; art: string | null }; heading: string; kicker: string; description: string }
+const { stop, heading, kicker, description } = Astro.props;
+const back = stop.side === 'right' ? '← Varun Gopal Rajan' : 'Varun Gopal Rajan →';
+---
+<Base title={`${stop.label} · Varun Gopal Rajan`} description={description} side={stop.side}>
+  <div class="side-top gutter"><a class="home-link" href={`/#${stop.id}`} data-back>{back}</a></div>
+  {stop.art === 'heart' && <HeartArt />}
+  <article class="side-body gutter">
+    <p class="label">{kicker}</p>
+    <h1>{heading}</h1>
+    <slot />
+    <p class="back"><a href={`/#${stop.id}`} data-back>{stop.side === 'right' ? '← Back' : 'Back →'}</a></p>
+  </article>
+  {stop.art && <Credits slot="after" />}
+</Base>

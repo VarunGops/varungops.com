@@ -1,0 +1,23 @@
+---
+import Side from '../layouts/Side.astro';
+import { STOPS } from '../lib/stops.js';
+import { stopData } from '../lib/content.js';
+import About from '../components/side/About.astro';
+import Now from '../components/side/Now.astro';
+import Experience from '../components/side/Experience.astro';
+import Research from '../components/side/Research.astro';
+import Teaching from '../components/side/Teaching.astro';
+import Writing from '../components/side/Writing.astro';
+import Life from '../components/side/Life.astro';
+import Collaborate from '../components/side/Collaborate.astro';
+
+// Only sections with something to open get a page: no drafts, and no Writing until the first piece.
+export async function getStaticPaths() {
+  const data = await stopData();
+  return STOPS.filter(s => data[s.id].open).map(s => ({ params: { side: s.path.slice(1, -1) }, props: { s, d: data[s.id] } }));
+}
+const BODY = { about: About, now: Now, 'clinical-experience': Experience, research: Research, teaching: Teaching, writing: Writing, life: Life, collaborate: Collaborate };
+const { s, d } = Astro.props;
+const Body = BODY[s.id];
+---
+<Side stop={s} heading={d.heading} kicker={d.kicker} description={d.description}><Body /></Side>

@@ -1,0 +1,15 @@
+---
+import { render } from 'astro:content';
+import { ordered, span } from '../../lib/content.js';
+const posts = await Promise.all((await ordered('experience')).map(async e => ({ e, Content: (await render(e)).Content })));
+---
+<ul class="items">
+  {posts.map(({ e, Content }) => (
+    <li class:list={{ brief: !e.data.described }}>
+      <span class="when">{span(e.data.start, e.data.end)}</span><strong>{e.data.title}</strong><span class="where">{e.data.place}</span>
+      {e.data.described && <Content />}
+    </li>
+  ))}
+</ul>
+<p class="small">MBBS, Adichunchanagiri Institute of Medical Sciences. Full GMC registration with a licence to practise, No. 7993092. ATLS, CCrISP, Good Clinical Practice and Neuroradiology Certification.</p>
+<p class="small"><a class="cv" href="/Dr_Varun_Gopal_Rajan_CV.pdf" download>Download my CV (PDF, 3 pages)</a></p>

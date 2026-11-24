@@ -39,14 +39,13 @@ test.describe('with JavaScript off', () => {
   test('the content still reads', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 2 })).toHaveCount(9);
-    await expect(page.getByText('adaptation of the WHO Surgical Safety Checklist', { exact: false })).toBeVisible();
+    await expect(page.locator('#about')).toContainText('Full GMC registration');
     await expect(page.getByRole('link', { name: 'drvarungopal@outlook.com' })).toHaveAttribute('href', 'mailto:drvarungopal@outlook.com');
-    await expect(page.getByRole('link', { name: /doi:10\.7759\/cureus\.114519/ })).toBeVisible();
   });
 });
 
 test('each research entry has its own page', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/research/');
   await page.getByRole('link', { name: /Mapping Half a Century of Global Brain Abscess Research/ }).click();
   await expect(page).toHaveURL(/\/research\/[a-z0-9-]+\/$/);
   await expect(page.getByRole('link', { name: /doi:10\.7759\/cureus\.114519/ })).toHaveAttribute('href', 'https://doi.org/10.7759/cureus.114519');
@@ -73,7 +72,7 @@ test('the footer credits all three anatomy sources', async ({ page }) => {
 });
 
 test('the CV can be downloaded as a PDF', async ({ page, request }) => {
-  await page.goto('/');
+  await page.goto('/clinical-experience/');
   const link = page.getByRole('link', { name: /Download my CV/ });
   await expect(link).toHaveAttribute('href', '/Dr_Varun_Gopal_Rajan_CV.pdf');
   const r = await request.get('/Dr_Varun_Gopal_Rajan_CV.pdf');

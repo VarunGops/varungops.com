@@ -13,5 +13,5 @@ const status = e.data.status[0].toUpperCase() + e.data.status.slice(1);
   <h1>{e.data.title}</h1>
   {(e.data.venue || e.data.doi) && <p class="where">{e.data.venue}{e.data.doi && <> <a href={`https://doi.org/${e.data.doi}`}>doi:{e.data.doi}</a></>}</p>}
   <div class="prose"><Content /></div>
-  <p class="back"><a href="/#research">Back to research</a></p>
+  <p class="back"><a href="/research/">Back to research</a></p>
 </Detail>

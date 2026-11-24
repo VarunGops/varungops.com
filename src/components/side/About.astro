@@ -1,0 +1,7 @@
+---
+import { section } from '../../lib/content.js';
+const { entry } = await section('about');
+const paras = (entry.body || '').trim().split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+---
+{entry.data.facts && <p class="facts">{entry.data.facts}</p>}
+<div class="prose">{paras.map(p => <p>{p}</p>)}</div>
