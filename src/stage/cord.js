@@ -10,7 +10,8 @@ export const TUBE = 11;              // floats per tube vertex: position(3) norm
 export const STEM = [1, 0.58, 0.22], RED = [1, 0.137, 0.22];
 
 export function cordShape({ stemJ: J, stemJ2, stemTop: Tp, fieldH, yAnchor, k }) {
-  const zEnd = ZC - (fieldH - yAnchor) / k, total = ZJ - zEnd;
+  // capped: a page measured at zero width for a moment (k = 0) would otherwise ask for an endless cord
+  const zEnd = ZC - (fieldH - yAnchor) / k, total = Math.min(ZJ - zEnd, 3000);
   const U = Math.min(215, 0.62 * total), thr = 1.4 / k, span = ZREF - ZJ;
   const m0 = clamp((J.yc - stemJ2.yc) / 4, -0.3, 0.1) * 0.7;      // the brainstem's own backward slope, carried into the cord
   const yc = u => {
