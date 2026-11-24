@@ -43,6 +43,19 @@ export function decodeTracts(json, buf) {
   };
 }
 
+// eyes.bin: per vertex 3 x uint16 position, 3 x int8 normal, uint8 class, uint8 side (0 left, 1 right), 2 pad; then uint32 indices
+export function decodeEyes(json, buf) {
+  const nv = json.verts, nf = json.faces;
+  if (buf.byteLength < NEED.eyes(json)) throw new RangeError('eyes.bin is truncated');
+  const b = new Uint8Array(buf, 0, nv * 12), pos = new Float32Array(nv * 3), nrm = new Int8Array(nv * 3), cls = new Uint8Array(nv), side = new Uint8Array(nv);
+  const dv = new DataView(buf);
+  for (let i = 0; i < nv; i++) {
+    for (let a = 0; a < 3; a++) { pos[i * 3 + a] = json.lo[a] + dv.getUint16(i * 12 + a * 2, true) / 65535 * (json.hi[a] - json.lo[a]); nrm[i * 3 + a] = dv.getInt8(i * 12 + 6 + a); }
+    cls[i] = b[i * 12 + 9]; side[i] = b[i * 12 + 10];
+  }
+  return { nv, pos, nrm, cls, side, index: new Uint32Array(buf, nv * 12, nf * 3) };
+}
+
 // The brainstem's cross-section at height z (mm), measured from the surface itself, so the cord can leave it without a step.
 export function stemFit(pos, region, z, tol) {
   let rx = 0, y0 = Infinity, y1 = -Infinity;
@@ -54,8 +67,9 @@ export function stemFit(pos, region, z, tol) {
 }
 
 // The byte length each file must have, from its own .json. A short file means a dropped or stale download.
-const NEED = {
+export const NEED = {
   brain: j => j.verts * 12 + j.faces * 12,
+  eyes: j => j.verts * 12 + j.faces * 12,
   tracts: j => j.streamlines * j.points * 6 + 2 * j.streamlines,
   heart: j => Math.ceil(j.verts * 10 / 4) * 4 + j.faces * 12,
 };

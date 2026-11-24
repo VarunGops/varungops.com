@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { decodeBrain, decodeTracts, stemFit, fetchRetry, loadAll, loadPart } from '../../src/stage/data.js';
+import { decodeBrain, decodeTracts, decodeEyes, stemFit, fetchRetry, loadAll, loadPart, NEED } from '../../src/stage/data.js';
 const load = n => ({ json: JSON.parse(readFileSync(`public/data/${n}.json`, 'utf8')), buf: readFileSync(`public/data/${n}.bin`).buffer.slice(0) });
 describe('anatomy data', () => {
   it('decodes the brain surface', () => { const b = load('brain'), m = decodeBrain(b.json, b.buf); expect(m.nv).toBe(74832); expect(m.index.length).toBe(149992 * 3); expect(Math.min(...m.pos.filter((_, i) => i % 3 === 2))).toBeCloseTo(-72.1, 0); });
@@ -8,6 +8,23 @@ describe('anatomy data', () => {
   it('decodes the tracts', () => { const t = load('tracts'), d = decodeTracts(t.json, t.buf); expect(d.N).toBe(16067); expect(d.P).toBe(32); expect([...d.flag].filter(f => f & 2).length).toBe(1536); });
   it('writes a lite tract file that is a prefix of the full one', () => { const t = load('tracts'), l = load('tracts-lite'); expect(l.json.streamlines).toBe(Math.floor(16067 * 0.6)); expect(decodeTracts(l.json, l.buf).point(100, 5)).toEqual(decodeTracts(t.json, t.buf).point(100, 5)); });
   it('rejects a truncated file', () => { const b = load('brain'); expect(() => decodeBrain(b.json, b.buf.slice(0, 1000))).toThrow('brain.bin is truncated'); });
+  it('decodes the eyes', () => {
+    const e = load('eyes'), d = decodeEyes(e.json, e.buf);
+    expect(e.buf.byteLength).toBe(NEED.eyes(e.json));
+    expect(new Set(d.side)).toEqual(new Set([0, 1]));
+    expect(Math.max(...d.cls)).toBeLessThan(e.json.classes.length);
+    expect(e.json.classes).toEqual(['sclera', 'cornea', 'iris', 'pupil', 'lens', 'ciliary body', 'retina', 'choroid']);
+    const [a, b] = e.json.centre, ipd = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    expect(ipd).toBeGreaterThan(60); expect(ipd).toBeLessThan(75);
+    for (const r of e.json.radius) { expect(r).toBeGreaterThan(10); expect(r).toBeLessThan(14); }   // an adult globe is about 24 mm across
+  });
+  it('writes lighter eyes for phones', () => {
+    const e = load('eyes'), l = load('eyes-lite');
+    expect(l.buf.byteLength).toBeLessThan(e.buf.byteLength * 0.7);
+    expect(l.buf.byteLength).toBe(NEED.eyes(l.json));
+    expect(l.json.classes).toEqual(e.json.classes);
+  });
+  it('rejects a truncated eyes file', () => { const e = load('eyes'); expect(() => decodeEyes(e.json, e.buf.slice(0, 1000))).toThrow('eyes.bin is truncated'); });
   it('retries a failed fetch and then gives up', async () => { let calls = 0; globalThis.fetch = async () => { calls++; throw new TypeError('Failed to fetch'); }; await expect(fetchRetry('x', 'json', 3)).rejects.toThrow('Failed to fetch'); expect(calls).toBe(3); });
 });
 

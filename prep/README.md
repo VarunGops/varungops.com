@@ -10,6 +10,7 @@ The brain, its fibre tracts and the heart on the home page are built from open a
 | Lobe labels | `mni_icbm152_nlin_sym_09c_CerebrA_nifti.zip` (0.3 MB) | https://packages.bic.mni.mcgill.ca/mni-models/icbm152/ | CC0 (Manera et al., Scientific Data 2020) |
 | Fibre tracts | `hcp1065_avg_tracts_tt.zip` (144 MB) | https://github.com/data-others/atlas/releases/tag/hcp1065 | CC BY-SA 4.0 (Yeh, Nat Commun 2022), plus Human Connectome Project acknowledgement |
 | Heart | `partof_BP3D_4.0_obj_99.zip` (62 MB) and `partof_element_parts.txt` | https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/ | BodyParts3D. File headers say CC BY-SA 2.1 Japan, the licence page says CC BY 4.0. Treated here as share-alike. |
+| Eyes (Now page) | `3d-vh-m-eye-l.glb` (27 MB) and `3d-vh-m-eye-r.glb` (21 MB) | https://3d.nih.gov/entries/3DPX-020998 and https://3d.nih.gov/entries/3DPX-020999 (Human Reference Atlas, from the Visible Human Male) | CC BY 4.0 |
 
 ## Build
 
@@ -23,6 +24,8 @@ python3 ../build.py
 ```
 
 ## What each script produces
+
+- `eyes.bin`, `eyes.json` (and `-lite`): `prep_eyes.py raw/3d-vh-m-eye-l.glb raw/3d-vh-m-eye-r.glb public/data`. Both eyes in millimetres in the Visible Human frame (+x the subject's left, +y up, +z forward), centred between the globes: sclera, cornea, iris, pupil, lens, ciliary body, retina and choroid, welded and simplified. The models have no extraocular muscles or optic nerve, and none are added. Fluids, conjunctiva and the drainage angle are left out.
 
 - `brain.bin`, `brain.json`: the pial surface of the MNI ICBM 2009c template (cerebrum, cerebellum, brainstem) as about 75,000 vertices. Each vertex carries its lobe, its sulcal depth and its height above a smoothed copy of the surface, which is how the page lights every gyrus and leaves every sulcus dark.
 - `tracts.bin`, `tracts.json`: 16,067 streamlines thinned from the HCP-1065 atlas, 32 points each, in shuffled order so a small screen can draw the first part of the file. Projection pathways get a larger share because they carry the impulse out from the centre. Those that reach the medulla are flagged, and the page continues them as the spinal cord.
@@ -39,3 +42,4 @@ BodyParts3D 4.0 has no outer ventricular wall, only the two ventricular cavities
 - Heart adapted from BodyParts3D, (c) The Database Center for Life Science.
 
 The adapted tract and heart files are offered under the same share-alike terms.
+- Eyes from the Human Reference Atlas 3D reference organs (NIH 3D 3DPX-020998 and 3DPX-020999), created from the Visible Human Male, National Library of Medicine. CC BY 4.0.
