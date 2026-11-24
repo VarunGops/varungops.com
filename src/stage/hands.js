@@ -1,17 +1,21 @@
 /* The hands on Clinical Experience: the Smithsonian's scans of the plaster casts of Abraham Lincoln's hands, drawn
    as a graphite engraving on black. The right hand, a fist round a cut broom handle, reaches down; the left reaches up,
-   palm open. Both drift and turn slowly (handpose.js), and red strings, simulated as ropes (ropes.js), run between
-   fixed points on their knuckles and fingertips, slackening and pulling taut as the hands move.
-   Millimetres, +y up, +z towards the viewer. */
+   palm open. Both drift and turn slowly (handpose.js). Red strings, pulled taut, run through points on the knuckles
+   and fingertips of both hands and on past them across the whole screen, as in the reference drawing; behind the words
+   they fade almost away, and they fade out as the hands scroll off.
+   Millimetres, +y up, +z towards the viewer. The canvas covers the screen; the hands sit in their box on the page. */
 import { program } from './gl.js';
-import { handPose } from './handpose.js';
-import { createRope, stepRope, ropePoints, catchUp } from './ropes.js';
+import { handPose, tautLine } from './handpose.js';
 
-const CAMERA = 640, NEAR = 40, FAR = 2000, SEG = 16, STEP = 1 / 60;
+const CAMERA = 640, NEAR = 40, FAR = 4000;
 
+// the camera, with the hands' box placed wherever it sits on the screen: uScale is box over screen, uOff its centre
 const CAM = `
-uniform vec2 uTan;
-vec4 camera(vec3 p){ float zc = p.z - ${CAMERA}.; return vec4(p.x/uTan.x, p.y/uTan.y, (-zc*(${FAR}.+${NEAR}.) - 2.*${FAR}.*${NEAR}.)/(${FAR}.-${NEAR}.), -zc); }`;
+uniform vec2 uTan, uScale, uOff;
+vec4 camera(vec3 p){
+  float w = ${CAMERA}. - p.z;
+  return vec4(p.x/uTan.x*uScale.x + uOff.x*w, p.y/uTan.y*uScale.y + uOff.y*w, (w*(${FAR}.+${NEAR}.) - 2.*${FAR}.*${NEAR}.)/(${FAR}.-${NEAR}.), w);
+}`;
 
 const HAND_VS = `#version 300 es
 in vec3 aPos; in vec3 aNrm; in float aHand;
@@ -59,12 +63,19 @@ void main(){
 const STRING_FS = `#version 300 es
 precision highp float;
 in float vDepth;
+uniform float uFade; uniform vec4 uText;      // the words' box, in window pixels from the bottom left
 out vec4 o;
-void main(){ float k = clamp(.72 + vDepth/220., .5, 1.); o = vec4(vec3(1., .137, .22)*k, 1.); }`;
+void main(){
+  vec2 f = gl_FragCoord.xy;
+  float d = max(max(uText.x - f.x, f.x - uText.z), max(uText.y - f.y, f.y - uText.w));
+  float k = clamp(.72 + vDepth/260., .45, 1.)*mix(.14, 1., smoothstep(-20., 60., d))*uFade;
+  vec3 c = vec3(1., .137, .22)*k;
+  o = vec4(c, k);
+}`;
 
 const apply = (m, p, v) => [m[0] * v[0] + m[3] * v[1] + m[6] * v[2] + p[0], m[1] * v[0] + m[4] * v[1] + m[7] * v[2] + p[1], m[2] * v[0] + m[5] * v[1] + m[8] * v[2] + p[2]];
 
-export function createHands(canvas, mesh, json, { preserve = false } = {}) {
+export function createHands(canvas, mesh, json, { preserve = false, box = canvas } = {}) {
   const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: preserve });
   if (!gl) return null;
   const hand = program(gl, HAND_VS, HAND_FS), str = program(gl, STRING_VS, STRING_FS);
@@ -75,9 +86,9 @@ export function createHands(canvas, mesh, json, { preserve = false } = {}) {
   attr('aPos', mesh.pos, 3, gl.FLOAT, false); attr('aNrm', mesh.nrm, 3, gl.BYTE, true); attr('aHand', mesh.hand, 1, gl.UNSIGNED_BYTE, false);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.index, gl.STATIC_DRAW);
 
-  // strings: one instanced quad per rope segment, its two ends refreshed every frame
-  const anchors = json.anchors, strings = json.strings, nSeg = strings.length * SEG;
-  const seg = new Float32Array(nSeg * 6), svao = gl.createVertexArray(); gl.bindVertexArray(svao);
+  // strings: one instanced quad each, its two ends refreshed every frame
+  const anchors = json.anchors, strings = json.strings, nStr = strings.length;
+  const seg = new Float32Array(nStr * 6), svao = gl.createVertexArray(); gl.bindVertexArray(svao);
   const cl = str.a('aCorner'), al = str.a('aA'), bl = str.a('aB');
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 0, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(cl); gl.vertexAttribPointer(cl, 2, gl.FLOAT, false, 0, 0);
@@ -85,56 +96,49 @@ export function createHands(canvas, mesh, json, { preserve = false } = {}) {
   gl.enableVertexAttribArray(al); gl.vertexAttribPointer(al, 3, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(al, 1);
   gl.enableVertexAttribArray(bl); gl.vertexAttribPointer(bl, 3, gl.FLOAT, false, 24, 12); gl.vertexAttribDivisor(bl, 1);
   gl.bindVertexArray(null);
+  const at = (pose, k) => apply(pose[anchors[k].hand].m, pose[anchors[k].hand].p, anchors[k].p);
+  const words = document.querySelector('.side-body');
 
-  const ends = pose => strings.map(([a, b]) => [apply(pose[anchors[a].hand].m, pose[anchors[a].hand].p, anchors[a].p), apply(pose[anchors[b].hand].m, pose[anchors[b].hand].p, anchors[b].p)]);
-  // each string is as long as the farthest its two anchors ever get, plus a little: never overstretched, often slack
-  const reach = strings.map(() => 0);
-  for (let t = 0; t < 60; t += 0.25) ends(handPose(t)).forEach(([a, b], i) => { reach[i] = Math.max(reach[i], Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])); });
-  let ropes = null, simT = null;
-  const start = pose => {
-    ropes = ends(pose).map(([a, b], i) => { const r = createRope(a, b, SEG, 0); r.len = reach[i] * 1.04 / SEG; return r; });
-    const e = ends(pose); for (let k = 0; k < 240; k++) ropes.forEach((r, i) => stepRope(r, e[i][0], e[i][1], STEP));   // let them hang first
-  };
-
-  let w = 0, h = 0, tanX = 1, tanY = 1;
+  let vw = 0, vh = 0, sc = 1, tanX = 1, tanY = 1;
   return {
     gl,
     size() {
       const r = canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const s = Math.min(dpr, Math.sqrt(7e6 / Math.max(1, r.width * r.height)));
-      w = r.width; h = r.height;
-      const W = Math.max(2, Math.round(w * s)), H = Math.max(2, Math.round(h * s));
+      vw = r.width; vh = r.height; sc = Math.min(dpr, Math.sqrt(7e6 / Math.max(1, vw * vh)));
+      const W = Math.max(2, Math.round(vw * sc)), H = Math.max(2, Math.round(vh * sc));
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-      tanY = 160 / CAMERA; tanX = tanY * w / h;                            // about 320 mm of height in view: the wrists leave the frame
-      if (tanX * CAMERA < 120) { tanX = 120 / CAMERA; tanY = tanX * h / w; }   // a narrow screen: keep both hands' width
+      const b = box.getBoundingClientRect();
+      tanY = 160 / CAMERA; tanX = tanY * b.width / Math.max(1, b.height);    // about 320 mm of height in the box: the wrists leave it
+      if (tanX * CAMERA < 120) { tanX = 120 / CAMERA; tanY = tanX * b.height / Math.max(1, b.width); }   // a narrow box: keep both hands' width
     },
+    clear() { gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); },
     draw(t, fixed = {}) {
       const time = fixed.age != null ? fixed.age : t, pose = handPose(time);
-      const c = catchUp(ropes ? simT : null, time);
-      if (c.rehang) start(pose);
-      simT = c.from;
-      if (fixed.age == null) {                                              // fixed steps, however fast the frames come
-        while (simT + STEP <= time) { simT += STEP; const e = ends(handPose(simT)); ropes.forEach((r, i) => stepRope(r, e[i][0], e[i][1], STEP)); }
-      }
-      ropes.forEach((r, i) => { const P = ropePoints(r); for (let k = 0; k < SEG; k++) seg.set(P.subarray(k * 3, k * 3 + 6), (i * SEG + k) * 6); });
+      strings.forEach(([a, b], i) => { const [p, q] = tautLine(at(pose, a), at(pose, b), { reach: 3000, zNear: CAMERA - 90, zFar: -3000 }); seg.set(p, i * 6); seg.set(q, i * 6 + 3); });
+      const b = box.getBoundingClientRect(), wr = words ? words.getBoundingClientRect() : { left: 0, right: 0, top: 0, bottom: 0 };
+      const cam = pr => { gl.uniform2f(pr.u.uTan, tanX, tanY); gl.uniform2f(pr.u.uScale, b.width / vw, b.height / vh); gl.uniform2f(pr.u.uOff, (b.left + b.width / 2) / vw * 2 - 1, 1 - (b.top + b.height / 2) / vh * 2); };
 
       gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clearDepth(1); gl.depthMask(true);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.useProgram(hand.p); gl.bindVertexArray(vao);
       const u = hand.u;
-      gl.uniform2f(u.uTan, tanX, tanY);
+      cam(hand);
       gl.uniformMatrix3fv(u.uM0, false, pose[0].m); gl.uniformMatrix3fv(u.uM1, false, pose[1].m); gl.uniform3fv(u.uP0, pose[0].p); gl.uniform3fv(u.uP1, pose[1].p);
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.disable(gl.BLEND); gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);
-      gl.uniform1f(u.uFreq, Math.min(0.95, Math.max(0.2, canvas.height / 2 / (tanY * CAMERA) / 4.2)));   // device px per mm, over 4.2 px a line
+      gl.uniform1f(u.uFreq, Math.min(0.95, Math.max(0.2, b.height * sc / 2 / (tanY * CAMERA) / 4.2)));   // device px per mm, over 4.2 px a line
       gl.uniform1f(u.uPass, 0); gl.drawElements(gl.TRIANGLES, mesh.index.length, gl.UNSIGNED_INT, 0);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.depthFunc(gl.LEQUAL);
       gl.uniform1f(u.uPass, 1); gl.drawElements(gl.TRIANGLES, mesh.index.length, gl.UNSIGNED_INT, 0);
 
       gl.useProgram(str.p); gl.bindVertexArray(svao);
       gl.bindBuffer(gl.ARRAY_BUFFER, sbuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, seg);
-      gl.uniform2f(str.u.uTan, tanX, tanY); gl.uniform2f(str.u.uRes, canvas.width / 2, canvas.height / 2);
-      gl.uniform1f(str.u.uWidth, Math.min(1.5, 0.75 * canvas.width / Math.max(1, w)));
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nSeg);
+      cam(str); gl.uniform2f(str.u.uRes, canvas.width / 2, canvas.height / 2);
+      gl.uniform1f(str.u.uWidth, Math.min(1.4, 0.7 * sc));
+      gl.uniform1f(str.u.uFade, Math.max(0, Math.min(1, (b.bottom + 0.1 * vh) / (0.5 * vh))));
+      gl.uniform4f(str.u.uText, wr.left * sc, (vh - wr.bottom) * sc, wr.right * sc, (vh - wr.top) * sc);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nStr);
+      gl.disable(gl.BLEND);
       gl.bindVertexArray(null);
     },
   };

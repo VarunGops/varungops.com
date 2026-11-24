@@ -21,3 +21,14 @@ export function handPose(t) {
   };
   return [upper, lower];
 }
+
+// A taut string through two anchors, carried on past both by `reach` mm, stopping short of the camera (zNear) and of the
+// far clip (zFar), so a string looped over one hand's knuckle and the other's fingertip runs off across the screen.
+export function tautLine(a, b, { reach, zNear, zFar }) {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], n = Math.hypot(...d);
+  for (let k = 0; k < 3; k++) d[k] /= n;
+  let tp = -reach, tq = reach;
+  if (d[2] > 1e-9) { tp = Math.max(tp, (zFar - a[2]) / d[2]); tq = Math.min(tq, (zNear - b[2]) / d[2]); }
+  if (d[2] < -1e-9) { tp = Math.max(tp, (zNear - a[2]) / d[2]); tq = Math.min(tq, (zFar - b[2]) / d[2]); }
+  return [a.map((v, k) => v + d[k] * tp), b.map((v, k) => v + d[k] * tq)];
+}

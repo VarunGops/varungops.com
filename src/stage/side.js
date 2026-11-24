@@ -13,8 +13,8 @@ const lite = innerWidth < 700;
 // its shaders cannot be built
 const ART = {
   heart: { part: 'heart', code: () => import('./heart.js'), make: (m, c, d, o) => m.createHeart(c, d, o), draw: (r, t, f) => r.draw(t, 0, f) },
-  eyes: { part: lite ? 'eyes-lite' : 'eyes', code: () => import('./eyes.js'), make: (m, c, d, o) => m.createEyes(c, decodeEyes(d.json, d.buf), d.json, { ...o, lite }), draw: (r, t, f) => r.draw(t, f) },
-  hands: { part: lite ? 'hands-lite' : 'hands', code: () => import('./hands.js'), make: (m, c, d, o) => m.createHands(c, decodeHands(d.json, d.buf), d.json, o), draw: (r, t, f) => r.draw(t, f) },
+  eyes: { part: lite ? 'eyes-lite' : 'eyes', code: () => import('./eyes.js'), make: (m, c, d, o) => m.createEyes(c, decodeEyes(d.json, d.buf), d.json, { ...o, lite, box: host }), draw: (r, t, f) => r.draw(t, f) },
+  hands: { part: lite ? 'hands-lite' : 'hands', code: () => import('./hands.js'), make: (m, c, d, o) => m.createHands(c, decodeHands(d.json, d.buf), d.json, { ...o, box: host }), draw: (r, t, f) => r.draw(t, f) },
 };
 
 // review switches, as on the home page: ?hage= and ?hyaw= fix the moment and the turn, and keep the frame readable
@@ -38,7 +38,9 @@ async function start() {
   if (!art) { set('still'); return; }
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; set('still'); });
   canvas.addEventListener('webglcontextrestored', () => { art = spec.make(mod, canvas, data, { preserve }); if (!art) return; lost = false; relayout(); });
-  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }).observe(canvas);
+  // the eyes' and hands' canvas covers the whole screen, so what decides whether to draw is the box they sit in;
+  // once it has scrolled well away the screen is wiped and nothing more is drawn until it comes back
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (!visible && art && art.clear) art.clear(); }, { rootMargin: kind === 'heart' ? '0px' : '60% 0px' }).observe(kind === 'heart' ? canvas : host);
   art.size();
   addEventListener('resize', relayout);
   if (reduce) draw(0); else requestAnimationFrame(frame);

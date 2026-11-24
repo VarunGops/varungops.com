@@ -204,3 +204,35 @@ test('the eyes take no harm from a pointer that moves and leaves', async ({ page
   await page.mouse.move(-10, -10); await page.waitForTimeout(500);
   expect(errors).toEqual([]);
 });
+
+// ---------- the art reaches across the whole screen ----------
+// counts pixels matching `cond` on the full-screen canvas, below the box the anatomy sits in
+const belowBox = (page, cond) => page.evaluate(cond => {
+  const c = document.querySelector('#art'), b = document.querySelector('.art-wide').getBoundingClientRect();
+  const o = document.createElement('canvas'); o.width = 160; o.height = 100; const x = o.getContext('2d'); x.drawImage(c, 0, 0, 160, 100);
+  const d = x.getImageData(0, 0, 160, 100).data, y0 = Math.ceil((b.bottom + 10) / innerHeight * 100), f = new Function('r', 'g', 'b', `return ${cond}`);
+  let n = 0; for (let y = y0; y < 100; y++) for (let i = 0; i < 160; i++) { const k = (y * 160 + i) * 4; if (f(d[k], d[k + 1], d[k + 2])) n++; }
+  return n;
+}, cond);
+test.describe('beyond the box', () => {
+  test.describe.configure({ timeout: 240000 });
+  test.use({ viewport: { width: 1280, height: 900 } });
+  test('the strings run on past the hands, across the screen', async ({ page }) => {
+    await page.goto('/clinical-experience/?hage=7&hyaw=0');
+    await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+    expect(await belowBox(page, 'r > 60 && g < 40 && b < 50')).toBeGreaterThan(10);
+  });
+  test('the fibres from the eyes sweep out across the screen', async ({ page }) => {
+    await page.goto('/now/?hage=38&hyaw=0');                    // a moment when the scan points down and to the right
+    await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+    expect(await belowBox(page, 'r + g + b > 40')).toBeGreaterThan(30);
+  });
+  test('the eyes scan on their own and take no notice of the pointer', async ({ page }) => {
+    await page.goto('/now/?hage=14&hyaw=0');
+    await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+    const sum = () => page.evaluate(() => { const c = document.querySelector('#art'), o = document.createElement('canvas'); o.width = 64; o.height = 40; const x = o.getContext('2d'); x.drawImage(c, 0, 0, 64, 40); return x.getImageData(0, 0, 64, 40).data.reduce((a, v) => a + v, 0); });
+    const before = await sum();
+    await page.mouse.move(50, 50); await page.mouse.move(1200, 800); await page.waitForTimeout(400);
+    expect(await sum()).toBe(before);
+  });
+});

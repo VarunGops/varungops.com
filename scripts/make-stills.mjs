@@ -30,18 +30,21 @@ try {
   const { w, h } = await page.evaluate(() => { const r = document.querySelector('#heart').getBoundingClientRect(); return { w: r.width, h: r.height }; });
   await save('heart', await grab('#heart', w, h, 800, 1000));
 
-  // the section pages' wider art, at the review moments the tests use: the eyes looking ahead, the hands mid-drift
-  for (const [name, url] of [['eyes', '/now/?hage=0.3&hyaw=0'], ['hands', '/clinical-experience/?hage=7&hyaw=0']]) {
-    await page.goto(base + url); await ready(); await page.waitForTimeout(300);
-    const r = await page.evaluate(() => { const b = document.querySelector('#art').getBoundingClientRect(); return { w: b.width, h: b.height }; });
-    await save(name, await grab('#art', r.w, r.h, 1280, Math.round(1280 * r.h / r.w)));
-  }
-  // and as a phone draws them: a narrower box, the eyes and hands framed larger
+  // the section pages' wider art, at the review moments the tests use. Their canvas covers the screen; the still shows
+  // in the box the anatomy sits in, so it is cut from the canvas at that box, on a desktop and on a phone.
+  const crop = p => p.evaluate(() => {
+    const c = document.querySelector('#art'), b = document.querySelector('.art-wide').getBoundingClientRect(), s = c.width / c.clientWidth;
+    const o = document.createElement('canvas'); o.width = Math.round(b.width * s); o.height = Math.round(b.height * s);
+    const x = o.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, o.width, o.height);
+    x.drawImage(c, b.left * s, b.top * s, b.width * s, b.height * s, 0, 0, o.width, o.height);
+    return o.toDataURL('image/webp', 0.86);
+  });
   const phone = await browser.newPage({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2 });
-  for (const [name, url] of [['eyes', '/now/?hage=0.3&hyaw=0'], ['hands', '/clinical-experience/?hage=7&hyaw=0']]) {
-    await phone.goto(base + url); await phone.waitForFunction(() => document.documentElement.dataset.stage === 'live', null, { timeout: 180000 }); await phone.waitForTimeout(300);
-    const url2 = await phone.evaluate(() => { const c = document.querySelector('#art'), o = document.createElement('canvas'); o.width = c.width; o.height = c.height; const x = o.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, o.width, o.height); x.drawImage(c, 0, 0); return o.toDataURL('image/webp', 0.86); });
-    await save(`${name}-phone`, url2);
+  for (const [name, url] of [['eyes', '/now/?hage=14&hyaw=0'], ['hands', '/clinical-experience/?hage=7&hyaw=0']]) {
+    for (const [p, suffix] of [[page, ''], [phone, '-phone']]) {
+      await p.goto(base + url); await p.waitForFunction(() => document.documentElement.dataset.stage === 'live', null, { timeout: 180000 }); await p.waitForTimeout(300);
+      await save(name + suffix, await crop(p));
+    }
   }
 
   // the social preview: the first screen at 1200 x 630, brain and name
