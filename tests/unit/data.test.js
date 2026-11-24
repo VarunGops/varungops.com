@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { decodeBrain, decodeTracts, decodeEyes, stemFit, fetchRetry, loadAll, loadPart, NEED } from '../../src/stage/data.js';
+import { decodeBrain, decodeTracts, decodeEyes, decodeHands, stemFit, fetchRetry, loadAll, loadPart, NEED } from '../../src/stage/data.js';
 const load = n => ({ json: JSON.parse(readFileSync(`public/data/${n}.json`, 'utf8')), buf: readFileSync(`public/data/${n}.bin`).buffer.slice(0) });
 describe('anatomy data', () => {
   it('decodes the brain surface', () => { const b = load('brain'), m = decodeBrain(b.json, b.buf); expect(m.nv).toBe(74832); expect(m.index.length).toBe(149992 * 3); expect(Math.min(...m.pos.filter((_, i) => i % 3 === 2))).toBeCloseTo(-72.1, 0); });
@@ -24,6 +24,31 @@ describe('anatomy data', () => {
     expect(l.buf.byteLength).toBe(NEED.eyes(l.json));
     expect(l.json.classes).toEqual(e.json.classes);
   });
+  it('decodes the hands, with string anchors on their own hand', () => {
+    const h = load('hands'), d = decodeHands(h.json, h.buf);
+    expect(h.buf.byteLength).toBe(NEED.hands(h.json));
+    expect(new Set(d.hand)).toEqual(new Set([0, 1]));
+    for (const k of [0, 1]) {
+      const A = h.json.anchors.filter(a => a.hand === k);
+      expect(A.length).toBe(7);
+      for (const a of A) {      // every anchor is a real vertex of its own hand
+        let best = Infinity;
+        for (let i = 0; i < d.nv; i++) if (d.hand[i] === k) best = Math.min(best, Math.hypot(d.pos[i * 3] - a.p[0], d.pos[i * 3 + 1] - a.p[1], d.pos[i * 3 + 2] - a.p[2]));
+        expect(best).toBeLessThan(0.5);
+      }
+      for (let i = 0; i < A.length; i++) for (let j = i + 1; j < A.length; j++) expect(Math.hypot(...A[i].p.map((v, a) => v - A[j].p[a]))).toBeGreaterThan(8);
+    }
+    expect(h.json.strings.length).toBe(8);
+    for (const [a, b] of h.json.strings) { expect(h.json.anchors[a].hand).toBe(0); expect(h.json.anchors[b].hand).toBe(1); }
+  });
+  it('writes lighter hands for phones with the same anchors', () => {
+    const h = load('hands'), l = load('hands-lite');
+    expect(l.buf.byteLength).toBeLessThan(h.buf.byteLength * 0.6);
+    expect(l.buf.byteLength).toBe(NEED.hands(l.json));
+    expect(l.json.anchors.length).toBe(h.json.anchors.length);
+    expect(l.json.strings).toEqual(h.json.strings);
+  });
+  it('rejects a truncated hands file', () => { const h = load('hands'); expect(() => decodeHands(h.json, h.buf.slice(0, 1000))).toThrow('hands.bin is truncated'); });
   it('rejects a truncated eyes file', () => { const e = load('eyes'); expect(() => decodeEyes(e.json, e.buf.slice(0, 1000))).toThrow('eyes.bin is truncated'); });
   it('retries a failed fetch and then gives up', async () => { let calls = 0; globalThis.fetch = async () => { calls++; throw new TypeError('Failed to fetch'); }; await expect(fetchRetry('x', 'json', 3)).rejects.toThrow('Failed to fetch'); expect(calls).toBe(3); });
 });
