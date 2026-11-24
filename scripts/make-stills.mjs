@@ -30,6 +30,13 @@ try {
   const { w, h } = await page.evaluate(() => { const r = document.querySelector('#heart').getBoundingClientRect(); return { w: r.width, h: r.height }; });
   await save('heart', await grab('#heart', w, h, 800, 1000));
 
+  // the section pages' wider art, at the review moments the tests use: the eyes looking ahead, the hands mid-drift
+  for (const [name, url] of [['eyes', '/now/?hage=0.3&hyaw=0'], ['hands', '/clinical-experience/?hage=7&hyaw=0']]) {
+    await page.goto(base + url); await ready(); await page.waitForTimeout(300);
+    const r = await page.evaluate(() => { const b = document.querySelector('#art').getBoundingClientRect(); return { w: b.width, h: b.height }; });
+    await save(name, await grab('#art', r.w, r.h, 1280, Math.round(1280 * r.h / r.w)));
+  }
+
   // the social preview: the first screen at 1200 x 630, brain and name
   const og = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
   await og.goto(`${base}/?age=4.38&yaw=0.2&smoke=0`);
