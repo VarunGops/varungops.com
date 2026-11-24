@@ -134,3 +134,72 @@ test.describe('the About heart', () => {
     await expect(page.locator('img.still-heart')).toBeVisible();
   });
 });
+
+// ---------- the art on Now and Clinical Experience ----------
+const bright = async (page, sel, cond) => page.evaluate(([sel, cond]) => {
+  const c = document.querySelector(sel), o = document.createElement('canvas'); o.width = 96; o.height = 48;
+  const x = o.getContext('2d'); x.drawImage(c, 0, 0, 96, 48); const d = x.getImageData(0, 0, 96, 48).data; let n = 0;
+  const f = new Function('r', 'g', 'b', `return ${cond}`);
+  for (let i = 0; i < d.length; i += 4) if (f(d[i], d[i + 1], d[i + 2])) n++;
+  return n;
+}, [sel, cond]);
+const noWebGL = () => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (k, ...a) { return /webgl/.test(k) ? null : g.call(this, k, ...a); }; };
+const countRaf = () => { window.__raf = 0; const r = requestAnimationFrame; window.requestAnimationFrame = f => { window.__raf++; return r(f); }; };
+
+for (const [name, path, still, credit, lit] of [
+  ['eyes', '/now/', /eyes/i, /Human Reference Atlas[\s\S]*Visible Human Male/, 'r + g + b > 150'],
+  ['hands', '/clinical-experience/', /hands/i, /plaster casts of Abraham Lincoln[\s\S]*CC0/, 'Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && r > 60'],
+]) {
+  test.describe(`the ${name}`, () => {
+    test.describe.configure({ timeout: 240000 });
+    test('go live and draw', async ({ page }) => {
+      await page.goto(`${path}?hage=2&hyaw=0`);
+      await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+      expect(await bright(page, '#art', lit)).toBeGreaterThan(40);
+      if (name === 'hands') expect(await bright(page, '#art', 'r > 150 && g < 90 && b < 90')).toBeGreaterThan(3);   // the red strings
+    });
+    test('show their still without WebGL 2', async ({ page }) => {
+      await page.addInitScript(noWebGL);
+      await page.goto(path);
+      await expect(page.locator('html')).toHaveAttribute('data-stage', 'still');
+      await expect(page.locator('img.still-art')).toBeVisible();
+      await expect(page.locator('img.still-art')).toHaveAttribute('alt', still);
+    });
+    test('with reduced motion draw once and run no loop', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.addInitScript(countRaf);
+      await page.goto(path);
+      await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+      const before = await page.evaluate(() => window.__raf); await page.waitForTimeout(1500);
+      expect(await page.evaluate(() => window.__raf) - before).toBeLessThanOrEqual(1);
+    });
+    test('fall back to the still when the context is lost, and come back', async ({ page }) => {
+      await page.goto(`${path}?hage=2&hyaw=0`);
+      await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+      await page.evaluate(() => { window.__ext = document.querySelector('#art').getContext('webgl2').getExtension('WEBGL_lose_context'); window.__ext.loseContext(); });
+      await expect(page.locator('html')).toHaveAttribute('data-stage', 'still');
+      expect(await page.locator('#art').evaluate(c => getComputedStyle(c).visibility)).toBe('hidden');
+      await page.evaluate(() => window.__ext.restoreContext());
+      await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+    });
+    test('fit a phone, load the lighter data and credit their source', async ({ page }) => {
+      const asked = []; page.on('request', r => { if (r.url().includes('/data/')) asked.push(new URL(r.url()).pathname); });
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.goto(path);
+      await expect(page.locator('html')).toHaveAttribute('data-stage', /live|still|failed/, { timeout: 120000 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
+      expect(asked).toContain(`/data/${name}-lite.bin`);
+      await expect(page.getByRole('contentinfo')).toContainText(credit);
+    });
+  });
+}
+test('the eyes take no harm from a pointer that moves and leaves', async ({ page }) => {
+  test.setTimeout(240000);
+  const errors = []; page.on('pageerror', e => errors.push(String(e)));
+  await page.goto('/now/');
+  await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+  await page.mouse.move(100, 100); await page.mouse.move(900, 500);
+  await page.evaluate(() => document.documentElement.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true })));
+  await page.mouse.move(-10, -10); await page.waitForTimeout(500);
+  expect(errors).toEqual([]);
+});

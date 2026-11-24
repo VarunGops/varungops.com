@@ -3,8 +3,8 @@
 // top of that page (null until it is built). Plain data, so the tests and the page script can both read it.
 export const STOPS = [
   { id: 'about', label: 'About', path: '/about/', art: 'heart' },
-  { id: 'now', label: 'Now', path: '/now/', art: null },
-  { id: 'clinical-experience', label: 'Clinical Experience', path: '/clinical-experience/', art: null },
+  { id: 'now', label: 'Now', path: '/now/', art: 'eyes' },
+  { id: 'clinical-experience', label: 'Clinical Experience', path: '/clinical-experience/', art: 'hands' },
   { id: 'research', label: 'Research', path: '/research/', art: null },
   { id: 'teaching', label: 'Teaching', path: '/teaching/', art: null },
   { id: 'writing', label: 'Writing', path: '/writing/', art: null },

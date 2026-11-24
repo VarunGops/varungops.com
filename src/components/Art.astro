@@ -1,0 +1,26 @@
+---
+// The anatomy at the top of a section page. The heart keeps its own ids and classes (its tests and styles use them);
+// the wider pieces draw on #art. The still shows until a frame is drawn, and stays when one cannot be.
+interface Props { kind: 'heart' | 'eyes' | 'hands' }
+const { kind } = Astro.props;
+const ALT = {
+  eyes: 'A pair of human eyes from the front, in colour, with fine strands of light fanning out from the pupils',
+  hands: 'Two human hands cast from life, drawn in grey, one reaching down and one reaching up, joined by red strings',
+};
+---
+{kind === 'heart' ? (
+  <div class="art" data-art="heart">
+    <div class="heart-wrap art-heart">
+      <img class="still still-heart" src="/still/heart.webp" alt="An anatomical heart drawn as a red engraving" width="800" height="1000" decoding="async" />
+      <canvas id="heart" class="heart" aria-hidden="true"></canvas>
+    </div>
+  </div>
+) : (
+  <div class="art art-wide" data-art={kind}>
+    <img class="still still-art" src={`/still/${kind}.webp`} alt={ALT[kind]} width="1280" height="640" decoding="async" />
+    <canvas id="art" class="art-canvas" aria-hidden="true"></canvas>
+  </div>
+)}
+<script>
+  import '../stage/side.js';
+</script>

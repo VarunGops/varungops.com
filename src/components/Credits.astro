@@ -1,12 +1,19 @@
 ---
 // The anatomy is real data, used under its licences. The wording follows prep/README.md exactly.
+// On the home page all three home sources; on a section page only the source of the art drawn there.
+const { art } = Astro.props;
+const LINES = {
+  heart: ['Heart adapted from BodyParts3D, (c) The Database Center for Life Science.'],
+  eyes: ['Eyes from the Human Reference Atlas 3D reference organs (NIH 3D 3DPX-020998 and 3DPX-020999), created from the Visible Human Male, National Library of Medicine. CC BY 4.0.'],
+  hands: ["Hands from 3D scans of plaster casts of Abraham Lincoln's hands, after Leonard Wells Volk, 1860. National Portrait Gallery, Smithsonian Institution, CC0."],
+};
 ---
 <footer class="credits gutter">
   <p class="label">Credits</p>
-  <ul>
+  {art ? <ul>{LINES[art].map(l => <li>{l}</li>)}</ul> : <ul>
     <li>MNI ICBM 152 2009c template, Copyright (C) 1993-2004 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University.</li>
     <li>Tracts adapted from the HCP-1065 tractography atlas (Yeh FC, Nat Commun 13, 4933, 2022), CC BY-SA 4.0. Data were provided by the Human Connectome Project, WU-Minn Consortium.</li>
     <li>Heart adapted from BodyParts3D, (c) The Database Center for Life Science.</li>
-  </ul>
-  <p>The adapted tract and heart files are offered under the same share-alike terms.</p>
+  </ul>}
+  {(!art || art === 'heart') && <p>The adapted tract and heart files are offered under the same share-alike terms.</p>}
 </footer>
