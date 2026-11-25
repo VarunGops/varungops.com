@@ -45,7 +45,8 @@ test('a phone address bar hiding does not rebuild the stage', async ({ page }) =
   expect(await page.evaluate(() => document.querySelector('#stage').height)).toBe(before);
 });
 test('nothing is drawn once the stage and heart are scrolled away', async ({ page }) => {
-  await page.addInitScript(() => { window.__draws = 0; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced']) { const f = WebGL2RenderingContext.prototype[k]; WebGL2RenderingContext.prototype[k] = function (...a) { window.__draws++; return f.apply(this, a); }; } });
+  // the brain, the smoke and the heart only: the scribbles behind the page are meant to keep moving below them
+  await page.addInitScript(() => { window.__draws = 0; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced']) { const f = WebGL2RenderingContext.prototype[k]; WebGL2RenderingContext.prototype[k] = function (...a) { if (this.canvas.id !== 'scribbles') window.__draws++; return f.apply(this, a); }; } });
   await page.goto('/?tracts=0'); await live(page);    // live animation without the fibre pass, which software WebGL renders at seconds a frame
   await page.locator('#last').scrollIntoViewIfNeeded(); await page.waitForTimeout(300);
   const before = await page.evaluate(() => window.__draws); await page.waitForTimeout(1000);
@@ -57,4 +58,35 @@ test('a page that has no size when the stage starts still goes live once it gets
   await expect(page.locator('html')).not.toHaveAttribute('data-stage', 'live');
   await page.evaluate(() => { document.getElementById('hide').remove(); dispatchEvent(new Event('resize')); });
   await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+});
+
+// ---------- the scribbles behind the home page ----------
+test.describe('the scribbles behind the home page', () => {
+  test.describe.configure({ timeout: 240000 });
+  const lit = page => page.evaluate(() => { const c = document.querySelector('#scribbles'); if (!c || !c.width) return 0; const o = document.createElement('canvas'); o.width = 96; o.height = 60; const x = o.getContext('2d'); x.drawImage(c, 0, 0, 96, 60); return [...x.getImageData(0, 0, 96, 60).data].filter((v, i) => i % 4 !== 3 && v > 25).length; });
+  const opacity = page => page.locator('#scribbles').evaluate(c => +getComputedStyle(c).opacity);
+  test('stay hidden over the brain and fade in below its shockwave', async ({ page }) => {
+    await page.goto('/?tracts=0&smoke=0&age=4.38&yaw=0.2');
+    await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+    expect(await opacity(page)).toBeLessThan(0.05);
+    await page.locator('#about').scrollIntoViewIfNeeded(); await page.waitForTimeout(600);
+    await page.evaluate(() => window.scrollBy(0, 300)); await page.waitForTimeout(600);
+    expect(await opacity(page)).toBeGreaterThan(0.3);
+    await expect.poll(() => lit(page), { timeout: 60000 }).toBeGreaterThan(40);
+  });
+  test('turn as the page scrolls', async ({ page }) => {
+    await page.goto('/?tracts=0&smoke=0&age=4.38&yaw=0.2');
+    await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });
+    await page.locator('#about').scrollIntoViewIfNeeded(); await page.waitForTimeout(800);
+    const a = await page.evaluate(() => document.querySelector('#scribbles').toDataURL());
+    await page.evaluate(() => window.scrollBy(0, 400)); await page.waitForTimeout(800);
+    expect(await page.evaluate(() => document.querySelector('#scribbles').toDataURL())).not.toBe(a);
+  });
+  test('fade out, rather than slide, on the way to a section page', async ({ page }) => {
+    await page.goto('/');
+    expect(await page.locator('#scribbles').evaluate(c => getComputedStyle(c).viewTransitionName)).toBe('scribbles');
+    expect((await page.request.get('/about/')).status()).toBe(200);
+    await page.goto('/about/');
+    await expect(page.locator('#scribbles')).toHaveCount(0);
+  });
 });

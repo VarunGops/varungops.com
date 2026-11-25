@@ -192,3 +192,9 @@ html[data-peer="about"] .heart-wrap{view-transition-name:heart}
 /* on Clinical Experience the edge line would read as one more red string: there it steps back */
 html[data-art-page="hands"]::before{opacity:.22}
 @media (max-width:820px){html[data-art-page="hands"] .art-wide{margin-top:5vh}}   /* headroom under the way home */
+
+/* the scribbles behind the home page: fixed behind everything, faded in by the page script below the brain's shockwave,
+   darkened towards the corners, and faded (not slid) on the way to a section page */
+.scribbles{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:0;view-transition-name:scribbles;
+  -webkit-mask-image:radial-gradient(ellipse 75% 70% at 50% 50%,#000 35%,transparent 100%);mask-image:radial-gradient(ellipse 75% 70% at 50% 50%,#000 35%,transparent 100%)}
+::view-transition-old(scribbles),::view-transition-new(scribbles){animation-duration:.6s}
