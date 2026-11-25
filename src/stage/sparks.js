@@ -1,9 +1,10 @@
-/* The sparks on Now, after Jaume Sánchez's Whirly Bonfire (Codevember 2017), written from scratch. Each spark is born
-   at the centre of a pupil and leaves along the eye's gaze; once clear of the eye it is caught by a 3D curl-noise
-   current that whirls it across the screen, with a little lift, until it burns out. Drawn as a short streak along its
-   velocity, white-hot when young and cooling through gold and orange to deep red, nearer sparks larger.
-   Simulated on the GPU with WebGL 2 transform feedback: one buffer is read while the other is written, then they swap.
-   The noise below is Ashima Arts' 3D simplex noise (Ian McEwan, Stefan Gustavson; MIT licence, (c) 2011 Ashima Arts). */
+/* The bonfire on Now, adapted from Jaume Sánchez's Whirly Bonfire (Codevember 2017, CC BY 4.0), following its recipe:
+   a very large number of particles carried by a broad, slowly changing curl-noise current, so neighbours sweep in
+   parallel as one whirlwind; each drawn as a tapered streak from where it was one step ago to where it is now, so
+   nearer particles are larger and longer by perspective alone; one orange (#fb710c) shading to red at the tail, added
+   together so dense parts burn towards yellow. Here the particles are born at the two eyes instead of in a cube.
+   Simulated on the GPU with WebGL 2 transform feedback at a fixed 60 steps a second.
+   The noise is Ashima Arts' 3D simplex noise (Ian McEwan, Stefan Gustavson; MIT licence, (c) 2011 Ashima Arts). */
 
 const NOISE = `
 vec3 mod289(vec3 x){ return x - floor(x*(1./289.))*289.; }
@@ -28,44 +29,37 @@ float snoise(vec3 v){
   vec4 m = max(.6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.); m = m*m;
   return 42.*dot(m*m, vec4(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
 }
-vec3 potential(vec3 p){ return vec3(snoise(p), snoise(p + vec3(31.4, -17.2, 9.7)), snoise(p + vec3(-23.1, 41.9, -13.3))); }
-vec3 curl(vec3 p){                                    // swirls without sources or sinks
-  const float e = .08;
-  vec3 dx = vec3(e, 0., 0.), dy = vec3(0., e, 0.), dz = vec3(0., 0., e);
-  vec3 px = potential(p + dx) - potential(p - dx), py = potential(p + dy) - potential(p - dy), pz = potential(p + dz) - potential(p - dz);
-  return vec3(py.z - pz.y, pz.x - px.z, px.y - py.x)/(2.*e);
+vec3 potential(vec3 p){ return vec3(snoise(p), snoise(p + vec3(123.4, 129.8, -123.9)), snoise(p + vec3(-95.19, 90.51, -12.3))); }
+vec3 curl(vec3 p){                                    // forward differences: four looks at the field, not six
+  const float e = .05;
+  vec3 c = potential(p), px = potential(p + vec3(e, 0., 0.)) - c, py = potential(p + vec3(0., e, 0.)) - c, pz = potential(p + vec3(0., 0., e)) - c;
+  return vec3(py.z - pz.y, pz.x - px.z, px.y - py.x)/e;
 }`;
 
 const UPDATE_VS = `#version 300 es
-in vec3 aPos; in vec3 aVel; in vec2 aLife; in float aSeed; in vec3 aT1; in vec3 aT2;
-uniform float uDt, uTime, uZmax; uniform vec3 uPupil0, uPupil1, uGaze0, uGaze1;
-out vec3 oPos; out vec3 oVel; out vec2 oLife; out float oSeed; out vec3 oT1; out vec3 oT2;   // T1, T2: two points trailing the head, for a curved streak
+in vec4 aState; in float aSeed;                       // position, life; a fixed random number per particle
+uniform float uTime, uSpeed, uFreq, uSpawn, uZmax; uniform vec3 uPupil0, uPupil1;
+out vec4 oState; out vec4 oPrev; out float oSeed;
 ${NOISE}
 float hash(float n){ return fract(sin(n)*43758.5453123); }
 void main(){
-  vec3 p = aPos, v = aVel, t1 = aT1, t2 = aT2; float age = aLife.x + uDt, life = aLife.y;
-  bool left = mod(floor(aSeed), 2.) < .5;
-  vec3 P = left ? uPupil0 : uPupil1, g = left ? uGaze0 : uGaze1;
-  bool unborn = aLife.x < 0.;
-  if (unborn && age < 0.) {                                                // still waiting its turn
-  } else if (unborn || age >= life || p.z > uZmax || abs(p.x) > 1400. || abs(p.y) > 1000.) {
-    float k = aSeed*1.618 + floor(uTime*4.)*7.13;                            // born again, somewhere new
-    vec3 r = vec3(hash(k), hash(k + 1.3), hash(k + 2.7))*2. - 1.;
-    vec3 u1 = normalize(cross(vec3(0., 1., 0.), g)), u2 = cross(g, u1);
-    p = P + (u1*r.x + u2*r.y)*1.3;                                          // from the centre of the pupil
-    vec3 burst = normalize(vec3(hash(k + 6.3), hash(k + 7.7), hash(k + 8.9))*2. - 1. + vec3(1e-3));
-    v = normalize(g*.7 + burst)*(55. + 55.*hash(k + 4.1));                  // out of the pupil in every direction, mostly forward
-    age = 0.; life = 2. + 2.2*hash(k + 5.9); t1 = p; t2 = p;
+  vec4 s = aState;
+  if (s.w < 0.) {                                       // still waiting its turn: the eyes pour steadily from the start
+    s.w = min(0., s.w + .5);
+    oPrev = vec4(s.xyz, s.w + 1.);
+  } else if (s.w == 0. || s.z > uZmax) {                       // born again at one of the eyes, with a fresh life
+    float k = aSeed*7.13 + floor(uTime*13.)*1.618;
+    vec3 r = vec3(hash(k), hash(k + 1.7), hash(k + 3.1))*2. - 1.;
+    vec3 P = mod(floor(aSeed), 2.) < .5 ? uPupil0 : uPupil1;
+    s = vec4(P + normalize(r + 1e-4)*pow(hash(k + 4.3), .5)*uSpawn, 20. + 80.*hash(k + 5.9));
+    oPrev = vec4(s.xyz, s.w + 1.);                     // a fresh particle draws nothing on its first step
   } else {
-    float loose = smoothstep(12., 60., distance(p, P));                     // clear of the eye, the current takes it
-    float wild = 1. + smoothstep(25., 70., distance(p, P));                // well clear of the eye, the current doubles
-    vec3 f = curl(p*.026 + vec3(0., 0., uTime*.08))*85.*wild + vec3(0., 8., 0.);   // whirls a few sparks across, so short streaks bend
-    v = mix(v, f, (1. - exp(-uDt*2.8))*loose);
-    p += v*uDt;
-    float k1 = 1. - exp(-uDt/.1);   // short embers, long enough that a turn shows                                         // the trail follows the head a little late, so a turning spark draws a curve
-    t1 = mix(t1, p, k1); t2 = mix(t2, t1, k1);
+    oPrev = s;
+    vec3 q = s.xyz*uFreq + vec3(uTime*.17, uTime*.11, uTime*.13);
+    s.xyz += uSpeed*(curl(q)*.5 + curl(q*2.)*.25);    // a broad current with a finer one on top
+    s.w = s.w - .05 <= 0. ? -.01 : s.w - .05;           // burnt out: born again on a later step
   }
-  oPos = p; oVel = v; oLife = vec2(age, life); oSeed = aSeed; oT1 = t1; oT2 = t2;
+  oState = s; oSeed = aSeed;
   gl_Position = vec4(0.);
 }`;
 const UPDATE_FS = `#version 300 es
@@ -73,81 +67,77 @@ precision highp float; out vec4 o; void main(){ o = vec4(0.); }`;
 
 export function createSparks(gl, { count, CAM, GLOW_FS }) {
   const compile = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS) && !gl.isContextLost()) console.error(gl.getShaderInfoLog(o)); return o; };
-  const up = gl.createProgram();
-  gl.attachShader(up, compile(gl.VERTEX_SHADER, UPDATE_VS)); gl.attachShader(up, compile(gl.FRAGMENT_SHADER, UPDATE_FS));
-  gl.transformFeedbackVaryings(up, ['oPos', 'oVel', 'oLife', 'oSeed', 'oT1', 'oT2'], gl.INTERLEAVED_ATTRIBS);
-  gl.linkProgram(up);
-  if (!gl.getProgramParameter(up, gl.LINK_STATUS)) { if (!gl.isContextLost()) console.warn('spark program did not link:', gl.getProgramInfoLog(up)); return null; }
-  const uu = n => gl.getUniformLocation(up, n);
-  const U = { dt: uu('uDt'), time: uu('uTime'), zmax: uu('uZmax'), p0: uu('uPupil0'), p1: uu('uPupil1'), g0: uu('uGaze0'), g1: uu('uGaze1') };
+  const link = (vs, fs, varyings) => {
+    const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    if (varyings) gl.transformFeedbackVaryings(p, varyings, gl.INTERLEAVED_ATTRIBS);
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { if (!gl.isContextLost()) console.warn('bonfire program did not link:', gl.getProgramInfoLog(p)); return null; }
+    const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const inf = gl.getActiveUniform(p, i); u[inf.name] = gl.getUniformLocation(p, inf.name); }
+    return { p, u };
+  };
+  const up = link(UPDATE_VS, UPDATE_FS, ['oState', 'oPrev', 'oSeed']);
 
+  // the streak: a capsule from the tail (one step ago) to the head (now), tapering to a tenth of its width at the tail
   const DRAW_VS = `#version 300 es
-in vec2 aCorner; in vec3 iPos; in vec3 iT1; in vec3 iT2; in vec2 iLife;
+in vec2 aCorner; in vec4 iState; in vec4 iPrev; in float iSeed;
 ${CAM}
 uniform vec2 uRes, uShift; uniform float uPx;
-out float vT; out float vAcross; out float vAlong; out float vNear;
-vec2 scr(vec4 c){ return c.xy/c.w*uRes; }
+out vec2 vLocal; out float vLen; out float vRad;
 void main(){
-  vec4 h = camera(iPos), m = camera(iT1), t = camera(iT2);                  // head, middle and tail of the streak
-  float s = 1. - aCorner.x;                                                 // 1 at the head, 0 at the tail
-  vec4 e = aCorner.x < .5 ? mix(h, m, aCorner.x*2.) : mix(m, t, aCorner.x*2. - 1.);
-  vec2 d = aCorner.x < .5 ? scr(h) - scr(m) : scr(m) - scr(t); float L = length(d);
+  vec4 h = camera(iState.xyz), t = camera(iPrev.xyz);
+  vec2 sh = h.xy/h.w*uRes, st = t.xy/t.w*uRes, d = sh - st; float L = length(d);
   vec2 dir = L > .001 ? d/L : vec2(1., 0.), nrm = vec2(-dir.y, dir.x);
-  float near = clamp(300./h.w, .3, 4.), w = uPx*(.35 + .9*near)*(.35 + .65*s);   // nearer sparks wider; the trail tapers
-  vec2 pos = scr(e) + nrm*aCorner.y*w + uShift*uRes;
-  if (aCorner.x == 0.) pos += dir*w;                                        // a round-ish head
-  gl_Position = iLife.x < 0. ? vec4(2., 2., 2., 1.) : vec4(pos/uRes*e.w, e.z, e.w);
-  vT = clamp(iLife.x/iLife.y, 0., 1.); vAcross = aCorner.y; vAlong = s; vNear = near;
+  float size = .5 + 1.5*fract(iSeed*.6180339), r = uPx*size*clamp(400./h.w, .25, 12.);   // nearer: wider, by perspective
+  vec2 pos = mix(st - dir*r, sh + dir*r, aCorner.x) + nrm*aCorner.y*r;
+  bool dead = iPrev.w < iState.w || iState.w <= 0. || h.w < 8.;
+  gl_Position = dead ? vec4(2., 2., 2., 1.) : vec4((pos + uShift*uRes)/uRes*h.w, h.z/h.w*h.w, h.w);
+  vLocal = vec2(mix(-r, L + r, aCorner.x), aCorner.y*r); vLen = L; vRad = r;
 }`;
   const DRAW_FS = `#version 300 es
 precision highp float;
-in float vT; in float vAcross; in float vAlong; in float vNear;
+in vec2 vLocal; in float vLen; in float vRad;
 uniform vec3 uMask;
 ${GLOW_FS}
 out vec4 o;
-vec3 ember(float t){                                   // white-hot, gold, orange, deep red, as the spark ages
-  return t < .08 ? mix(vec3(1., .97, .9), vec3(1., .82, .45), t/.08) : t < .4 ? mix(vec3(1., .82, .45), vec3(1., .45, .12), (t - .08)/.32) : mix(vec3(1., .45, .12), vec3(.75, .1, .06), (t - .4)/.6);
-}
 void main(){
-  float across = exp(-vAcross*vAcross*3.), along = .15 + .85*pow(vAlong, 1.6);           // brightest at the head
-  float life = smoothstep(0., .05, vT)*pow(1. - vT, 1.2);
-  vec3 head = mix(ember(vT), vec3(1., .91, .69), .55*vAlong*vAlong), tail = mix(head, vec3(1., .42, .0), (1. - vAlong)*.7);
-  float depth = clamp((vNear - .45)/1.4, 0., 1.);
-  vec3 c = (tail*across*along + vec3(1., .85, .6)*pow(vAlong, 6.)*exp(-vAcross*vAcross*1.5)*depth*1.6)*life*uGain*mix(.35, 1.4, depth)*clearOfWords()*uFade*uMask;   // nearer: brighter, with a glowing head
+  float a = clamp(vLocal.x/max(vLen, 1e-3), 0., 1.);                        // 0 at the tail, 1 at the head
+  float r = vRad*mix(.1, 1., a), dist = length(vec2(vLocal.x - a*vLen, vLocal.y));
+  float edge = 1. - smoothstep(r*.78, r, dist);
+  vec3 col = mix(vec3(1., 0., 0.), vec3(.984, .443, .047), .5 + .5*a);     // red at the tail, orange (#fb710c) at the head
+  float alpha = edge*a*uGain*clearOfWords()*uFade;
+  vec3 c = col*alpha*uMask;
   o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
-  const sh = (type, src) => compile(type, src);
-  const dp = gl.createProgram(); gl.attachShader(dp, sh(gl.VERTEX_SHADER, DRAW_VS)); gl.attachShader(dp, sh(gl.FRAGMENT_SHADER, DRAW_FS)); gl.linkProgram(dp);
-  if (!gl.getProgramParameter(dp, gl.LINK_STATUS)) { if (!gl.isContextLost()) console.warn('spark drawing did not link:', gl.getProgramInfoLog(dp)); return null; }
-  const du = {}; const nu = gl.getProgramParameter(dp, gl.ACTIVE_UNIFORMS); for (let i = 0; i < nu; i++) { const inf = gl.getActiveUniform(dp, i); du[inf.name] = gl.getUniformLocation(dp, inf.name); }
+  const dp = link(DRAW_VS, DRAW_FS);
+  if (!up || !dp) return null;
 
-  // state: position(3) velocity(3) age, life (2) seed (1). Each spark waits a random while before its first birth, so
-  // they leave the eyes as a stream, not all at once.
-  const STRIDE = 15, init = new Float32Array(count * STRIDE);
+  // state: position(3) life(1) | previous position(3) previous life(1) | seed(1). Lives start staggered so the eyes pour
+  // steadily from the first moment.
+  const STRIDE = 9, init = new Float32Array(count * STRIDE);
   let s = 12345; const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-  for (let i = 0; i < count; i++) { init[i * STRIDE + 6] = -rnd() * 7; init[i * STRIDE + 7] = 1; init[i * STRIDE + 8] = i + rnd() * 0.5; }
+  for (let i = 0; i < count; i++) { init[i * STRIDE + 3] = -rnd() * 40; init[i * STRIDE + 7] = 0; init[i * STRIDE + 8] = i + rnd() * 0.5; }
   const bufs = [gl.createBuffer(), gl.createBuffer()];
   for (const b of bufs) { gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, init, gl.DYNAMIC_COPY); }
   const attrs = (prog, names, div) => names.forEach(([n, size, off]) => { const l = gl.getAttribLocation(prog, n); if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, STRIDE * 4, off * 4); gl.vertexAttribDivisor(l, div); });
-  const upVao = bufs.map(b => { const v = gl.createVertexArray(); gl.bindVertexArray(v); gl.bindBuffer(gl.ARRAY_BUFFER, b); attrs(up, [['aPos', 3, 0], ['aVel', 3, 3], ['aLife', 2, 6], ['aSeed', 1, 8], ['aT1', 3, 9], ['aT2', 3, 12]], 0); return v; });
-  const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 0, 1, .5, -1, .5, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);   // head, middle, tail
+  const upVao = bufs.map(b => { const v = gl.createVertexArray(); gl.bindVertexArray(v); gl.bindBuffer(gl.ARRAY_BUFFER, b); attrs(up.p, [['aState', 4, 0], ['aSeed', 1, 8]], 0); return v; });
+  const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 0, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
   const drawVao = bufs.map(b => {
     const v = gl.createVertexArray(); gl.bindVertexArray(v);
-    const cl = gl.getAttribLocation(dp, 'aCorner'); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.enableVertexAttribArray(cl); gl.vertexAttribPointer(cl, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, b); attrs(dp, [['iPos', 3, 0], ['iLife', 2, 6], ['iT1', 3, 9], ['iT2', 3, 12]], 1); return v;
+    const cl = gl.getAttribLocation(dp.p, 'aCorner'); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.enableVertexAttribArray(cl); gl.vertexAttribPointer(cl, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, b); attrs(dp.p, [['iState', 4, 0], ['iPrev', 4, 4], ['iSeed', 1, 8]], 1); return v;
   });
   gl.bindVertexArray(null);
   const tf = gl.createTransformFeedback();
   let cur = 0;
 
   return {
-    program: dp, uniforms: du,
+    program: dp.p, uniforms: dp.u,
     reset() { for (const b of bufs) { gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferSubData(gl.ARRAY_BUFFER, 0, init); } cur = 0; },
-    // one step of the simulation; e: { pupils, gaze, zmax }
-    step(dt, time, e) {
-      gl.useProgram(up);
-      gl.uniform1f(U.dt, dt); gl.uniform1f(U.time, time); gl.uniform1f(U.zmax, e.zmax);
-      gl.uniform3fv(U.p0, e.pupils[0]); gl.uniform3fv(U.p1, e.pupils[1]); gl.uniform3fv(U.g0, e.gaze[0]); gl.uniform3fv(U.g1, e.gaze[1]);
+    // one 1/60 s step; e: { pupils, zmax }
+    step(time, e) {
+      gl.useProgram(up.p);
+      gl.uniform1f(up.u.uTime, time); gl.uniform1f(up.u.uSpeed, e.speed); gl.uniform1f(up.u.uFreq, e.freq); gl.uniform1f(up.u.uSpawn, e.spawn); gl.uniform1f(up.u.uZmax, e.zmax);
+      gl.uniform3fv(up.u.uPupil0, e.pupils[0]); gl.uniform3fv(up.u.uPupil1, e.pupils[1]);
       gl.bindVertexArray(upVao[cur]); gl.bindBuffer(gl.ARRAY_BUFFER, null);   // a buffer being written may not be bound anywhere else
       gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf); gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, bufs[1 - cur]);
       gl.enable(gl.RASTERIZER_DISCARD); gl.beginTransformFeedback(gl.POINTS);
@@ -157,14 +147,14 @@ void main(){
       gl.bindVertexArray(null);
       cur = 1 - cur;
     },
-    // the caller has set the camera and glow uniforms on `program`
+    // the caller has set the camera and fade uniforms on `program`; the split is drawn here, two pixels as in the original
     draw(res, px) {
-      gl.uniform2fv(du.uRes, res); gl.uniform1f(du.uPx, px);
+      gl.uniform2fv(dp.u.uRes, res); gl.uniform1f(dp.u.uPx, px);
       gl.bindVertexArray(drawVao[cur]);
-      const split = 1.6 / res[0];                                       // a slight red-blue split, as in the reference
+      const split = 2 / res[0];
       for (const [mask, dx] of [[[1, 0, 0], -split], [[0, 1, 0], 0], [[0, 0, 1], split]]) {
-        gl.colorMask(!!mask[0], !!mask[1], !!mask[2], true); gl.uniform3fv(du.uMask, mask); gl.uniform2f(du.uShift, dx, 0);
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 6, count);
+        gl.colorMask(!!mask[0], !!mask[1], !!mask[2], true); gl.uniform3fv(dp.u.uMask, mask); gl.uniform2f(dp.u.uShift, dx, 0);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
       }
       gl.colorMask(true, true, true, true); gl.bindVertexArray(null);
     },
