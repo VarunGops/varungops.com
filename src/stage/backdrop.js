@@ -27,7 +27,7 @@ export function createBackdrop(canvas, { lite = false, preserve = false } = {}) 
   const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: preserve });
   if (!gl) return null;
   const pr = program(gl, VS, FS); if (!pr) return null;
-  const lines = traceScribbles({ lines: lite ? 260 : 520, steps: lite ? 140 : 170, step: 0.021, spread: 0.38, seed: 11 });
+  const lines = traceScribbles({ lines: lite ? 380 : 820, steps: lite ? 140 : 170, step: 0.021, spread: 0.38, seed: 11 });
   const per = lines[0].length / 3 - 1, segs = lines.length * per, pos = new Float32Array(segs * 6), glow = new Float32Array(segs * 2);
   lines.forEach((L, l) => {
     const b = 0.35 + 0.65 * ((l * 0.618) % 1);                            // each line its own brightness
@@ -59,9 +59,9 @@ export function createBackdrop(canvas, { lite = false, preserve = false } = {}) 
       gl.useProgram(pr.p); gl.bindVertexArray(vao); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
       gl.uniformMatrix3fv(pr.u.uRot, false, R); gl.uniform2f(pr.u.uAspect, 2.6 * H / W / fit, 2.6 / fit);
       gl.uniform1f(pr.u.uDist, 3.4); gl.uniform1f(pr.u.uDrift, -0.25 + Math.min(0.5, scroll * 0.00012));
-      const px = 1.4 / W * 2;                                                        // the colour split: a pixel and a half
+      const px = 0.9 / W * 2;                                                        // the colour split: about a pixel
       for (const [mask, dx, tint] of [[[true, false, false], -px, [1, 0, 0]], [[false, true, false], 0, [0, 1, 0]], [[false, false, true], px, [0, 0, 1]]]) {
-        gl.colorMask(mask[0], mask[1], mask[2], true); gl.uniform2f(pr.u.uShift, dx, 0); gl.uniform3fv(pr.u.uTint, tint.map(v => v * 0.55 + 0.0));
+        gl.colorMask(mask[0], mask[1], mask[2], true); gl.uniform2f(pr.u.uShift, dx, 0); gl.uniform3fv(pr.u.uTint, tint.map((v, k) => v * [0.78, 0.82, 0.86][k] * (lite ? 0.63 : 0.42)));   // cool silver, faint (half as strong again on a phone, where less of it shows)
         gl.drawArrays(gl.LINES, 0, segs * 2);
       }
       gl.colorMask(true, true, true, true); gl.bindVertexArray(null);
@@ -79,11 +79,13 @@ export function startBackdrop() {
   const webgl2 = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
   if (!webgl2) return;
   let bd = null, last = -1, lost = false, dirty = true;
-  const START = 0.9, PEAK = 0.5;                                                  // in screens of the home section; at most half strength
+  const START = 0.9, PEAK = 0.42, credits = document.querySelector('.credits');     // in screens of the home section; at most 42%
   const shown = () => { const h = home.offsetHeight; return Math.max(0, Math.min(1, (scrollY - START * h) / (0.6 * h))); };   // once the shockwave has gone
   const below = () => Math.max(0, scrollY - START * home.offsetHeight);
   const paint = t => { if (!bd || lost) return; bd.draw(frozen || reduce ? 0 : t, below()); dirty = false; };
-  const show = () => { canvas.style.opacity = String(PEAK * shown()); };
+  // lighter as the page goes on, and gone before the credits
+  const ending = () => { if (!credits) return 1; const r = credits.getBoundingClientRect(); return Math.max(0, Math.min(1, (r.top - innerHeight * 0.35) / (innerHeight * 0.45))); };
+  const show = () => { const depth = Math.min(1, scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight)); canvas.style.opacity = String(PEAK * shown() * (1 - 0.35 * depth) * ending()); };
   const build = () => {
     bd = createBackdrop(canvas, { lite: innerWidth < 700, preserve: frozen });
     if (!bd) return;

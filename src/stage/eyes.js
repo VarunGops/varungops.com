@@ -77,7 +77,7 @@ float box(vec4 r, float round, float soft){             // 0 inside the box, ris
   float d = length(max(q, 0.)) + min(max(q.x, q.y), 0.) - round;
   return smoothstep(-soft*.25, soft, d);
 }
-float clearOfWords(){ return box(uText, 90., 240.)*box(uNav, 20., 70.); }   // a soft, rounded fade, so no words sit in a hard dark box`;
+float clearOfWords(){ return mix(.22, 1., box(uText, 140., 320.))*box(uNav, 20., 70.); }   // the words keep a soft quarter-strength haze, never a hard edge   // a soft, rounded fade, so no words sit in a hard dark box`;
 // a soft bloom of light round each pupil, drawn as a screen-facing quad
 const HALO_VS = `#version 300 es
 in vec2 aCorner;
@@ -114,7 +114,7 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
   if (!gl) return null;
   const eye = program(gl, EYE_VS, EYE_FS), halo = program(gl, HALO_VS, HALO_FS);
   if (!eye || !halo) return null;
-  const sparks = createSparks(gl, { count: lite ? 5000 : 16000, CAM, GLOW_FS });
+  const sparks = createSparks(gl, { count: lite ? 3200 : 9600, CAM, GLOW_FS });
   if (!sparks) return null;
 
   const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
@@ -185,7 +185,7 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
       if (!NO_SPARKS) {
         const sp = { u: sparks.uniforms };
         gl.useProgram(sparks.program); cam(sp);
-        gl.uniform1f(sp.u.uGain, lite ? 1.25 : 1.0); gl.uniform1f(sp.u.uFade, fade);
+        gl.uniform1f(sp.u.uGain, lite ? 1.3 : 1.1); gl.uniform1f(sp.u.uFade, fade);
         gl.uniform4f(sp.u.uText, wr.left * s, (vh - wr.bottom) * s, wr.right * s, (vh - wr.top) * s);
         gl.uniform4f(sp.u.uNav, nr.left * s, (vh - nr.bottom) * s, nr.right * s, (vh - nr.top) * s);
         sparks.draw([W / 2, H / 2], Math.max(0.8, 1.0 * s));
