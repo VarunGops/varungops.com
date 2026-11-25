@@ -62,7 +62,7 @@ void main(){
     vec3 f = curl(p*.026 + vec3(0., 0., uTime*.08))*85.*wild + vec3(0., 8., 0.);   // whirls a few sparks across, so short streaks bend
     v = mix(v, f, (1. - exp(-uDt*2.8))*loose);
     p += v*uDt;
-    float k1 = 1. - exp(-uDt/.05);   // short embers                                         // the trail follows the head a little late, so a turning spark draws a curve
+    float k1 = 1. - exp(-uDt/.1);   // short embers, long enough that a turn shows                                         // the trail follows the head a little late, so a turning spark draws a curve
     t1 = mix(t1, p, k1); t2 = mix(t2, t1, k1);
   }
   oPos = p; oVel = v; oLife = vec2(age, life); oSeed = aSeed; oT1 = t1; oT2 = t2;

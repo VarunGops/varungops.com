@@ -100,6 +100,25 @@ void main(){
   o = vec4(g, max(g.r, max(g.g, g.b)));
 }`;
 
+// the glow: the frame is drawn off screen, its bright parts blurred at a quarter size, and the blur laid back over it
+const QUAD_VS = `#version 300 es
+in vec2 aP; out vec2 vUv;
+void main(){ vUv = aP*.5 + .5; gl_Position = vec4(aP, 0., 1.); }`;
+const BRIGHT_FS = `#version 300 es
+precision highp float; in vec2 vUv; uniform sampler2D uTex; out vec4 o;
+void main(){ vec3 c = texture(uTex, vUv).rgb; float l = max(c.r, max(c.g, c.b)); o = vec4(c*smoothstep(.12, .7, l), 1.); }`;
+const BLUR_FS = `#version 300 es
+precision highp float; in vec2 vUv; uniform sampler2D uTex; uniform vec2 uDir; out vec4 o;
+void main(){
+  vec3 c = texture(uTex, vUv).rgb*.227027;
+  c += (texture(uTex, vUv + uDir*1.3846).rgb + texture(uTex, vUv - uDir*1.3846).rgb)*.316216;
+  c += (texture(uTex, vUv + uDir*3.2308).rgb + texture(uTex, vUv - uDir*3.2308).rgb)*.070270;
+  o = vec4(c, 1.);
+}`;
+const COMPOSE_FS = `#version 300 es
+precision highp float; in vec2 vUv; uniform sampler2D uBase, uGlow; uniform float uK; out vec4 o;
+void main(){ vec4 b = texture(uBase, vUv); vec3 c = b.rgb + texture(uGlow, vUv).rgb*uK; o = vec4(c, max(b.a, max(c.r, max(c.g, c.b)))); }`;
+
 const seeded = s => () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
 // the turn that brings +z onto direction d: yaw about y, then pitch (column-major)
@@ -124,6 +143,24 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.index, gl.STATIC_DRAW);
 
   const quad = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+  const bright = program(gl, QUAD_VS, BRIGHT_FS), blur = program(gl, QUAD_VS, BLUR_FS), compose = program(gl, QUAD_VS, COMPOSE_FS);
+  if (!bright || !blur || !compose) return null;
+  const qvao = gl.createVertexArray(); gl.bindVertexArray(qvao);
+  { gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); const l = bright.a('aP'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0); }
+  // targets: the full frame (with depth) and two quarter-size buffers for the blur; remade when the size changes
+  const tex = (w, h) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
+  const fbo = (t, depth) => { const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); if (depth) gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth); gl.bindFramebuffer(gl.FRAMEBUFFER, null); return f; };
+  let post = null;
+  const makePost = (W, H) => {
+    if (post) { for (const t of post.tex) gl.deleteTexture(t); for (const f of post.fb) gl.deleteFramebuffer(f); gl.deleteRenderbuffer(post.depth); }
+    const qw = Math.max(1, W >> 2), qh = Math.max(1, H >> 2), depth = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depth); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, W, H);
+    const t = [tex(W, H), tex(qw, qh), tex(qw, qh)];
+    post = { W, H, qw, qh, depth, tex: t, fb: [fbo(t[0], depth), fbo(t[1]), fbo(t[2])] };
+  };
+  const pass = (pr, target, w, h, setup) => { gl.bindFramebuffer(gl.FRAMEBUFFER, target); gl.viewport(0, 0, w, h); gl.useProgram(pr.p); setup(pr.u); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
+  const bindTex = (unit, t, loc) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, unit); };
+
   const hvao = gl.createVertexArray(); gl.bindVertexArray(hvao);
   { const cl = halo.a('aCorner'); gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW); gl.enableVertexAttribArray(cl); gl.vertexAttribPointer(cl, 2, gl.FLOAT, false, 0, 0); }
   gl.bindVertexArray(null);
@@ -144,11 +181,12 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
       vw = r.width; vh = r.height; s = Math.min(dpr, Math.sqrt(7e6 / Math.max(1, vw * vh)));
       const W = Math.max(2, Math.round(vw * s)), H = Math.max(2, Math.round(vh * s));
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+      if (!post || post.W !== W || post.H !== H) makePost(W, H);
       const b = box.getBoundingClientRect(), span = (Math.abs(C[0][0] - C[1][0]) + 2 * R[0] + 6) / 2;
       tanX = span / (lite || b.width < 700 ? 0.68 : 0.6) / CAMERA; tanY = tanX * b.height / Math.max(1, b.width);
       if (tanY * CAMERA < R[0] * 1.8) { tanY = R[0] * 1.8 / CAMERA; tanX = tanY * b.width / Math.max(1, b.height); }
     },
-    clear() { gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); },
+    clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); },
     // fixed.age freezes the moment (review, reduced motion)
     draw(t, fixed = {}) {
       const time = fixed.age != null ? fixed.age : t;
@@ -169,6 +207,7 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
           simT = run(simT, time);
         }
       }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, post.fb[0]);                                     // the frame is drawn off screen first
       gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clearDepth(1); gl.depthMask(true);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -185,7 +224,7 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
       if (!NO_SPARKS) {
         const sp = { u: sparks.uniforms };
         gl.useProgram(sparks.program); cam(sp);
-        gl.uniform1f(sp.u.uGain, lite ? 1.3 : 1.1); gl.uniform1f(sp.u.uFade, fade);
+        gl.uniform1f(sp.u.uGain, lite ? 1.9 : 1.6); gl.uniform1f(sp.u.uFade, fade);
         gl.uniform4f(sp.u.uText, wr.left * s, (vh - wr.bottom) * s, wr.right * s, (vh - wr.top) * s);
         gl.uniform4f(sp.u.uNav, nr.left * s, (vh - nr.bottom) * s, nr.right * s, (vh - nr.top) * s);
         sparks.draw([W / 2, H / 2], Math.max(0.8, 1.0 * s));
@@ -197,6 +236,14 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
       gl.uniform3fv(halo.u.uPupil0, pupils[0]); gl.uniform3fv(halo.u.uPupil1, pupils[1]); gl.uniform2f(halo.u.uRes, W / 2, H / 2);
       gl.uniform1f(halo.u.uSize, (R[0] * 2.6) * (b.width * s / 2) / (tanX * CAMERA)); gl.uniform1f(halo.u.uFade, 0.75 + 0.25 * fade);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 2);
+      // the glow: bright parts at a quarter size, blurred twice each way, laid back over the frame
+      gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.bindVertexArray(qvao);
+      pass(bright, post.fb[1], post.qw, post.qh, u => bindTex(0, post.tex[0], u.uTex));
+      for (let i = 0; i < 2; i++) {
+        pass(blur, post.fb[2], post.qw, post.qh, u => { bindTex(0, post.tex[1], u.uTex); gl.uniform2f(u.uDir, (1 + i) / post.qw, 0); });
+        pass(blur, post.fb[1], post.qw, post.qh, u => { bindTex(0, post.tex[2], u.uTex); gl.uniform2f(u.uDir, 0, (1 + i) / post.qh); });
+      }
+      pass(compose, null, W, H, u => { bindTex(0, post.tex[0], u.uBase); bindTex(1, post.tex[1], u.uGlow); gl.uniform1f(u.uK, 1.25); });
       gl.bindVertexArray(null); gl.depthMask(true);
     },
   };
