@@ -57,15 +57,15 @@ void main(){
   float phi = acos(clamp(normalize(vQ).z, -1., 1.)), alpha = atan(vQ.y, vQ.x), r = length(vQ.xy);
   vec3 g;
   if (c == 0) {                                   // sclera: dark glass, a cool rim, the faintest rings of latitude
-    g = vec3(.42, .52, .95)*rim*.55 + vec3(.5, .55, .75)*ndl*.06;
+    g = vec3(.984, .443, .047)*(pow(rim, 4.)*1.6 + rim*.25) + vec3(.6, .45, .38)*ndl*.07;   // a crisp #fb710c edge
   } else if (c == 2) {                            // iris: spokes of light in the fibres' colours, brightest at the pupil
     float fib = .5 + .5*sin(alpha*120. + sin(alpha*17.)*3.), limbus = exp(-pow(r - 5.4, 2.)*3.);
-    g = mix(vec3(.7, .85, 1.), wheel(alpha/6.2831853 + uTime*.035 + (vSide > .5 ? .5 : 0.)), .5)*(fib*.22 + .06)*(.5 + .5*exp(-(r - 1.7)*.5)) + vec3(.55, .7, 1.)*limbus*.32;
+    g = mix(vec3(1., .18, .05), vec3(.984, .443, .047), fib)*(fib*.3 + .08)*(.5 + .5*exp(-(r - 1.7)*.5)) + vec3(1., .5, .18)*limbus*.4;
   } else if (c == 3) {                            // the pupil: white-hot
-    g = mix(vec3(.95, .6, 1.), vec3(1.), smoothstep(1.4, .3, r))*.75;
+    g = mix(vec3(1., .45, .1), vec3(1., .97, .9), smoothstep(1.6, .2, r))*1.8;   // white-hot at the centre
   } else {                                        // the cornea: clear, a glint
     float spec = pow(clamp(dot(reflect(-l, n), v), 0., 1.), 80.);
-    g = vec3(.8, .95, 1.)*(spec*1.4 + rim*.12);
+    g = vec3(1., .88, .75)*spec*1.2 + vec3(.95, .45, .2)*rim*.1;
   }
   o = vec4(g, max(g.r, max(g.g, g.b)));
 }`;
@@ -96,7 +96,7 @@ uniform float uFade;
 out vec4 o;
 void main(){
   float r2 = dot(vQ, vQ);
-  vec3 g = (vec3(1., .92, 1.)*exp(-r2*90.)*.5 + vec3(.7, .55, 1.)*exp(-r2*14.)*.08)*uFade;
+  vec3 g = (vec3(1., .82, .6)*exp(-r2*90.)*.45 + vec3(1., .42, .12)*exp(-r2*8.)*.3)*uFade;   // a warm bloom round each pupil
   o = vec4(g, max(g.r, max(g.g, g.b)));
 }`;
 
@@ -110,7 +110,9 @@ float random(vec2 n, float offset){ return .5 - fract(sin(dot(n.xy + vec2(offset
 void main(){
   vec4 b = texture(uBase, vUv);
   vec3 bg = vec3(.149, .106, .122)*uFade;                       // #261b1f, the original's warm dark
-  vec3 c = bg*(1. - b.a) + b.rgb;
+  float m = max(b.r, max(b.g, b.b));
+  vec3 keep = b.rgb*(1. - exp(-1.3*m))/max(m, 1e-4), each = 1. - exp(-1.3*b.rgb);    // tone that keeps the hue, and tone that lets dense fire turn gold
+  vec3 c = bg*(1. - min(b.a, 1.)) + mix(keep, each, .45);                           // half of each: gold where it is dense, never a flat clip or cream
   c += vec3(.1*random(vUv, uTime))*uFade;                       // fine grain
   c *= mix(1., 1.1 - length(vUv - .5)*1.1, uFade);              // darker towards the corners
   c = max(c, 0.);
@@ -132,7 +134,7 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
   const eye = program(gl, EYE_VS, EYE_FS), halo = program(gl, HALO_VS, HALO_FS);
   if (!eye || !halo) return null;
   // the original moves 262,144 particles; here half that on a desktop, an eighth on a phone, fewer in frozen review frames
-  const sparks = createSparks(gl, { count: preserve ? 8192 : lite ? 32768 : 131072, CAM, GLOW_FS });
+  const sparks = createSparks(gl, { count: preserve ? 8192 : lite ? 49152 : 131072, CAM, GLOW_FS });
   if (!sparks) return null;
 
   const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
@@ -147,14 +149,15 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
   const qvao = gl.createVertexArray(); gl.bindVertexArray(qvao);
   { gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); const l = final.a('aP'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0); }
   // targets: the full frame (with depth) and two quarter-size buffers for the blur; remade when the size changes
-  const tex = (w, h) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
+  const hdr = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');   // dense fire adds past 1: keep it, and tone it down at the end
+  const tex = (w, h, deep) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); if (deep && hdr) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null); else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
   const fbo = (t, depth) => { const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); if (depth) gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth); gl.bindFramebuffer(gl.FRAMEBUFFER, null); return f; };
   let post = null;
   const makePost = (W, H) => {
     if (post) { for (const t of post.tex) gl.deleteTexture(t); for (const f of post.fb) gl.deleteFramebuffer(f); gl.deleteRenderbuffer(post.depth); }
     const qw = Math.max(1, W >> 2), qh = Math.max(1, H >> 2), depth = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, depth); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, W, H);
-    const t = [tex(W, H), tex(qw, qh), tex(qw, qh)];
+    const t = [tex(W, H, true), tex(qw, qh), tex(qw, qh)];
     post = { W, H, qw, qh, depth, tex: t, fb: [fbo(t[0], depth), fbo(t[1]), fbo(t[2])] };
   };
   const pass = (pr, target, w, h, setup) => { gl.bindFramebuffer(gl.FRAMEBUFFER, target); gl.viewport(0, 0, w, h); gl.useProgram(pr.p); setup(pr.u); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
@@ -199,10 +202,11 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
       // the sparks: a fixed step, however the frames come; a frozen moment (review, reduced motion) is reached by
       // running the last five seconds before it, so it is the same every time
       if (!NO_SPARKS) {
-        const run = (from, to, most = Infinity) => { let k = from, n = 0; while (k + STEP <= to + 1e-9 && n++ < most) { k += STEP; sparks.step(k, { pupils: eyesAt(k).pupils, zmax: CAMERA - 25, speed: 0.55, freq: 0.0045, spawn: 7 }); } return k; };
+        const run = (from, to, most = Infinity) => { let k = from, n = 0; while (k + STEP <= to + 1e-9 && n++ < most) { k += STEP; const e = eyesAt(k); sparks.step(k, { pupils: e.pupils.map((p, i) => p.map((v, j) => v + e.gaze[i][j] * 3)), dirs: e.gaze,   // born at the face of each pupil and thrown out along its gaze
+           zmax: CAMERA - 25, speed: 0.4, freq: 0.0075, spawn: 5, push: 1.3, reach: 32, long: lite ? [0.25, 5] : [0.18, 4] }); } return k; };
         if (fixed.age != null) { if (simT !== time) { sparks.reset(); run(time - 1.5, time); simT = time; } }   // a frozen frame: the same second and a half before it, every time
         else {
-          if (simT == null) simT = run(time - 2, time);                // the first look already has the fire going
+          if (simT == null) simT = run(time - 5, time);                // the first look already has the fire going, across the whole screen
           else if (time - simT > 0.2) simT = time - STEP;              // after a pause, carry on rather than catch up
           simT = run(simT, time, 4);                                   // at most four steps a frame, as in the original
         }
@@ -224,10 +228,10 @@ export function createEyes(canvas, mesh, json, { preserve = false, lite = false,
       if (!NO_SPARKS) {
         const sp = { u: sparks.uniforms };
         gl.useProgram(sparks.program); cam(sp);
-        gl.uniform1f(sp.u.uGain, lite ? 0.5 : 0.6); gl.uniform1f(sp.u.uFade, fade);
+        gl.uniform1f(sp.u.uGain, lite ? 1.2 : 1.05); gl.uniform1f(sp.u.uFade, fade);
         gl.uniform4f(sp.u.uText, wr.left * s, (vh - wr.bottom) * s, wr.right * s, (vh - wr.top) * s);
         gl.uniform4f(sp.u.uNav, nr.left * s, (vh - nr.bottom) * s, nr.right * s, (vh - nr.top) * s);
-        sparks.draw([W / 2, H / 2], 0.55 * s);
+        sparks.draw([W / 2, H / 2], 0.38 * s, { trail: 8, pupils });
       }
 
       // and the bloom of light at each pupil

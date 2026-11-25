@@ -38,7 +38,7 @@ vec3 curl(vec3 p){                                    // forward differences: fo
 
 const UPDATE_VS = `#version 300 es
 in vec4 aState; in float aSeed;                       // position, life; a fixed random number per particle
-uniform float uTime, uSpeed, uFreq, uSpawn, uZmax; uniform vec3 uPupil0, uPupil1;
+uniform float uTime, uSpeed, uFreq, uSpawn, uZmax, uPush, uReach; uniform vec2 uLong; uniform vec3 uPupil0, uPupil1, uDir0, uDir1;
 out vec4 oState; out vec4 oPrev; out float oSeed;
 ${NOISE}
 float hash(float n){ return fract(sin(n)*43758.5453123); }
@@ -51,12 +51,16 @@ void main(){
     float k = aSeed*7.13 + floor(uTime*13.)*1.618;
     vec3 r = vec3(hash(k), hash(k + 1.7), hash(k + 3.1))*2. - 1.;
     vec3 P = mod(floor(aSeed), 2.) < .5 ? uPupil0 : uPupil1;
-    s = vec4(P + normalize(r + 1e-4)*pow(hash(k + 4.3), .5)*uSpawn, 20. + 80.*hash(k + 5.9));
+    s = vec4(P + normalize(r + 1e-4)*pow(hash(k + 4.3), .5)*uSpawn, (3. + 37.*pow(hash(k + 5.9), 3.))*(hash(k + 7.7) < uLong.x ? uLong.y : 1.));   // most burn out near the eye; a share (uLong.x) live uLong.y times as long and travel far
     oPrev = vec4(s.xyz, s.w + 1.);                     // a fresh particle draws nothing on its first step
   } else {
     oPrev = s;
     vec3 q = s.xyz*uFreq + vec3(uTime*.17, uTime*.11, uTime*.13);
-    s.xyz += uSpeed*(curl(q)*.5 + curl(q*2.)*.25);    // a broad current with a finer one on top
+    bool left = mod(floor(aSeed), 2.) < .5;
+    vec3 P = left ? uPupil0 : uPupil1, D = left ? uDir0 : uDir1;
+    vec3 fan = vec3(hash(aSeed*3.7), hash(aSeed*5.3), hash(aSeed*9.1))*2. - 1.;          // each spark's own angle off the gaze
+    float jet = uPush*exp(-length(s.xyz - P)/uReach);                                   // thrown out of the pupil, then let go
+    s.xyz += uSpeed*(curl(q)*.5 + curl(q*2.3)*.4) + jet*normalize(D + .55*fan);       // a broad current with a finer one on top
     s.w = s.w - .05 <= 0. ? -.01 : s.w - .05;           // burnt out: born again on a later step
   }
   oState = s; oSeed = aSeed;
@@ -81,21 +85,24 @@ export function createSparks(gl, { count, CAM, GLOW_FS }) {
   const DRAW_VS = `#version 300 es
 in vec2 aCorner; in vec4 iState; in vec4 iPrev; in float iSeed;
 ${CAM}
-uniform vec2 uRes, uShift; uniform float uPx;
-out vec2 vLocal; out float vLen; out float vRad;
+uniform vec2 uRes, uShift; uniform float uPx, uTrail; uniform vec3 uPupil0, uPupil1;
+out vec2 vLocal; out float vLen; out float vRad; out float vNear; out float vBoost;
 void main(){
-  vec4 h = camera(iState.xyz), t = camera(iPrev.xyz);
+  bool big = fract(iSeed*.3819) > .9875;                                                   // one in eighty: a long, thick, bright streak
+  float trail = big ? uTrail : 2. + 2.*fract(iSeed*.7548);                                // the rest: short, crisp dashes, two to four steps
+  vec4 h = camera(iState.xyz), t = camera(iState.xyz + (iPrev.xyz - iState.xyz)*trail);   // drawn along its motion
   vec2 sh = h.xy/h.w*uRes, st = t.xy/t.w*uRes, d = sh - st; float L = length(d);
   vec2 dir = L > .001 ? d/L : vec2(1., 0.), nrm = vec2(-dir.y, dir.x);
-  float size = .5 + 1.5*fract(iSeed*.6180339), r = uPx*size*clamp(400./h.w, .25, 12.);   // nearer: wider, by perspective
+  float size = .5 + 1.5*fract(iSeed*.6180339), r = uPx*size*(big ? 1.8 : .75)*clamp(400./h.w, .25, 12.);   // dashes are hairlines; only the long streaks are thick   // nearer: wider, by perspective
   vec2 pos = mix(st - dir*r, sh + dir*r, aCorner.x) + nrm*aCorner.y*r;
   bool dead = iPrev.w < iState.w || iState.w <= 0. || h.w < 8.;
   gl_Position = dead ? vec4(2., 2., 2., 1.) : vec4((pos + uShift*uRes)/uRes*h.w, h.z/h.w*h.w, h.w);
-  vLocal = vec2(mix(-r, L + r, aCorner.x), aCorner.y*r); vLen = L; vRad = r;
+  vLocal = vec2(mix(-r, L + r, aCorner.x), aCorner.y*r); vLen = L; vRad = r; vBoost = big ? 2.5 : 1.;
+  vNear = smoothstep(1.5, 9., min(length(iState.xyz - uPupil0), length(iState.xyz - uPupil1)));   // the pupil itself stays clear: the fire leaves it
 }`;
   const DRAW_FS = `#version 300 es
 precision highp float;
-in vec2 vLocal; in float vLen; in float vRad;
+in vec2 vLocal; in float vLen; in float vRad; in float vNear; in float vBoost;
 uniform vec3 uMask;
 ${GLOW_FS}
 out vec4 o;
@@ -103,8 +110,8 @@ void main(){
   float a = clamp(vLocal.x/max(vLen, 1e-3), 0., 1.);                        // 0 at the tail, 1 at the head
   float r = vRad*mix(.1, 1., a), dist = length(vec2(vLocal.x - a*vLen, vLocal.y));
   float edge = 1. - smoothstep(r*.78, r, dist);
-  vec3 col = mix(vec3(1., 0., 0.), vec3(.984, .443, .047), .5 + .5*a);     // red at the tail, orange (#fb710c) at the head
-  float alpha = edge*a*uGain*clearOfWords()*uFade;
+  vec3 col = mix(vec3(1., .12, .08), vec3(1., .44, .12), .5 + .5*a);       // red at the tail, orange at the head: only the densest crowds add up to gold
+  float alpha = edge*a*uGain*clearOfWords()*uFade*vNear*vBoost;
   vec3 c = col*alpha*uMask;
   o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
@@ -133,11 +140,12 @@ void main(){
   return {
     program: dp.p, uniforms: dp.u,
     reset() { for (const b of bufs) { gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferSubData(gl.ARRAY_BUFFER, 0, init); } cur = 0; },
-    // one 1/60 s step; e: { pupils, zmax }
+    // one 1/60 s step; e: { pupils, dirs, zmax, speed, freq, spawn, push, reach, long: [share, times] }
     step(time, e) {
       gl.useProgram(up.p);
       gl.uniform1f(up.u.uTime, time); gl.uniform1f(up.u.uSpeed, e.speed); gl.uniform1f(up.u.uFreq, e.freq); gl.uniform1f(up.u.uSpawn, e.spawn); gl.uniform1f(up.u.uZmax, e.zmax);
-      gl.uniform3fv(up.u.uPupil0, e.pupils[0]); gl.uniform3fv(up.u.uPupil1, e.pupils[1]);
+      gl.uniform3fv(up.u.uPupil0, e.pupils[0]); gl.uniform3fv(up.u.uPupil1, e.pupils[1]); gl.uniform3fv(up.u.uDir0, e.dirs[0]); gl.uniform3fv(up.u.uDir1, e.dirs[1]);
+      gl.uniform1f(up.u.uPush, e.push); gl.uniform1f(up.u.uReach, e.reach); gl.uniform2fv(up.u.uLong, e.long);
       gl.bindVertexArray(upVao[cur]); gl.bindBuffer(gl.ARRAY_BUFFER, null);   // a buffer being written may not be bound anywhere else
       gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf); gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, bufs[1 - cur]);
       gl.enable(gl.RASTERIZER_DISCARD); gl.beginTransformFeedback(gl.POINTS);
@@ -147,11 +155,12 @@ void main(){
       gl.bindVertexArray(null);
       cur = 1 - cur;
     },
-    // the caller has set the camera and fade uniforms on `program`; the split is drawn here, two pixels as in the original
-    draw(res, px) {
-      gl.uniform2fv(dp.u.uRes, res); gl.uniform1f(dp.u.uPx, px);
+    // the caller has set the camera and fade uniforms on `program`; the colour split is drawn here, a pixel wide
+    draw(res, px, e) {
+      gl.uniform2fv(dp.u.uRes, res); gl.uniform1f(dp.u.uPx, px); gl.uniform1f(dp.u.uTrail, e.trail);
+      gl.uniform3fv(dp.u.uPupil0, e.pupils[0]); gl.uniform3fv(dp.u.uPupil1, e.pupils[1]);
       gl.bindVertexArray(drawVao[cur]);
-      const split = 2 / res[0];
+      const split = 1 / res[0];
       for (const [mask, dx] of [[[1, 0, 0], -split], [[0, 1, 0], 0], [[0, 0, 1], split]]) {
         gl.colorMask(!!mask[0], !!mask[1], !!mask[2], true); gl.uniform3fv(dp.u.uMask, mask); gl.uniform2f(dp.u.uShift, dx, 0);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
