@@ -16,15 +16,19 @@ const sample = (page, cond = 'false', box = null) => page.evaluate(([cond, box])
   const [x, y, bw, bh] = box ? [box.x * k, box.y * k, box.w * k, box.h * k] : [0, 0, c.width, c.height];
   const o = document.createElement('canvas'); o.width = w; o.height = h; const g = o.getContext('2d'); g.drawImage(c, x, y, bw, bh, 0, 0, w, h);
   const d = g.getImageData(0, 0, w, h).data, f = new Function('r', 'g', 'b', `return ${cond}`); let n = 0, s = 0, s2 = 0;
-  for (let i = 0; i < d.length; i += 4) { if (f(d[i], d[i + 1], d[i + 2])) n++; const v = (d[i] + d[i + 1] + d[i + 2]) / 3; s += v; s2 += v * v; }
-  const m = s / (w * h); return { n, mean: m, sd: Math.sqrt(Math.max(0, s2 / (w * h) - m * m)), data: Array.from(d.filter((_, i) => i % 16 === 0)) };
+  const lum = [];                                            // brightness as drawn: read-back colours are un-premultiplied, so weigh by alpha
+  for (let i = 0; i < d.length; i += 4) { if (f(d[i], d[i + 1], d[i + 2])) n++; const v = (d[i] + d[i + 1] + d[i + 2]) / 3 * d[i + 3] / 255; lum.push(v); s += v; s2 += v * v; }
+  const m = s / (w * h); return { n, mean: m, sd: Math.sqrt(Math.max(0, s2 / (w * h) - m * m)), data: lum.filter((_, i) => i % 4 === 0) };
 }, [cond, box]);
-// the words' box on screen, and a box of the same size beside or above it, clear of the words
-const wordsAndClear = page => page.evaluate(() => {
-  const r = document.querySelector('.side-body').getBoundingClientRect(), top = Math.max(0, r.top), bottom = Math.min(innerHeight, r.bottom);
-  const h = Math.max(40, bottom - top), w = r.width;
-  return { words: { x: r.left, y: top, w, h }, clear: { x: r.left, y: Math.max(0, top - h - 20), w, h: Math.min(h, top - 20 > 40 ? top - 20 : h) } };
-});
+// the same patch of background with the words over it, then with the words moved off the page: the frame is fixed
+// (?hage), so the only difference is the dimming under the words
+const dimmedUnderWords = async page => {
+  const box = await page.evaluate(() => { const r = document.querySelector('.side-body').getBoundingClientRect(), top = Math.max(0, r.top); return { x: r.left, y: top, w: r.width, h: Math.max(40, Math.min(innerHeight, r.bottom) - top) }; });
+  const under = await sample(page, 'false', box);
+  await page.evaluate(() => { document.querySelector('.side-body').style.transform = 'translateY(4000px)'; dispatchEvent(new Event('resize')); });
+  await page.waitForTimeout(600);
+  return [under.mean, (await sample(page, 'false', box)).mean];
+};
 
 test.describe('About: pulse rings', () => {
   test('draws red rings round the heart', async ({ page }) => {
@@ -34,13 +38,12 @@ test.describe('About: pulse rings', () => {
   test('the rings move with the beat', async ({ page }) => {
     await page.goto('/about/?hage=0.1&hyaw=0'); await live(page); const a = (await sample(page)).data;
     await page.goto('/about/?hage=0.7&hyaw=0'); await live(page); const b = (await sample(page)).data;
-    expect(a.filter((v, i) => Math.abs(v - b[i]) > 20).length / a.length).toBeGreaterThan(0.02);
+    expect(a.filter((v, i) => Math.abs(v - b[i]) > 6).length / a.length).toBeGreaterThan(0.02);
   });
   test('the words sit on a dimmed background', async ({ page }) => {
-    await page.goto('/about/?hage=0.3&hyaw=0'); await live(page);
-    const { words } = await wordsAndClear(page), inside = await sample(page, 'false', words), all = await sample(page);
-    const peak = d => Math.max(...d);                         // the brightest of the rings, under the words and anywhere
-    expect(peak(inside.data)).toBeLessThan(peak(all.data) * 0.45);
+    await page.goto('/about/?hage=5.3&hyaw=0'); await live(page);   // six beats in: rings out across the words
+    const [under, bare] = await dimmedUnderWords(page);
+    expect(bare).toBeGreaterThan(0.5); expect(under).toBeLessThan(bare * 0.45);
   });
   test('the heart keeps beating when the background\'s context is lost', async ({ page }) => {
     await page.goto('/about/?hage=0.3&hyaw=0'); await live(page);
@@ -84,5 +87,26 @@ test.describe('About: pulse rings', () => {
   test('the credit names the source', async ({ page }) => {
     await page.goto('/about/');
     await expect(page.getByRole('contentinfo')).toContainText('Pulse rings adapted from Jaume Sánchez’s DOF Tunnel (Codevember 2016), CC BY 4.0.');
+  });
+});
+
+test.describe('Clinical Experience: graphite flow lines', () => {
+  test('draws graphite lines', async ({ page }) => {
+    await page.goto('/clinical-experience/?hage=2&hyaw=0'); await live(page);
+    expect((await sample(page, 'Math.abs(r - g) < 12 && Math.abs(g - b) < 12 && r > 35')).n).toBeGreaterThan(300);
+  });
+  test('the lines are strokes, not a wash', async ({ page }) => {
+    await page.goto('/clinical-experience/?hage=2&hyaw=0'); await live(page);
+    const patch = await sample(page, 'false', { x: 24, y: 140, w: 192, h: 96 });   // a small patch at about its own resolution, clear of the words
+    expect(patch.sd).toBeGreaterThan(Math.max(6, patch.mean * 0.5));
+  });
+  test('the words sit on a dimmed background', async ({ page }) => {
+    await page.goto('/clinical-experience/?hage=2&hyaw=0'); await live(page);
+    const [under, bare] = await dimmedUnderWords(page);
+    expect(bare).toBeGreaterThan(0.5); expect(under).toBeLessThan(bare * 0.45);
+  });
+  test('the credit names the source', async ({ page }) => {
+    await page.goto('/clinical-experience/');
+    await expect(page.getByRole('contentinfo')).toContainText('Flow lines adapted from Jaume Sánchez’s Lines on a sphere (Codevember 2016), CC BY 4.0.');
   });
 });

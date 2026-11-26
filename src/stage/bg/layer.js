@@ -15,14 +15,15 @@ uniform vec4 uText, uNav;
 float box(vec4 r, float round, float soft){
   vec2 c = (r.xy + r.zw)*.5, h = (r.zw - r.xy)*.5, q = abs(gl_FragCoord.xy - c) - h + round;
   float d = length(max(q, 0.)) + min(max(q.x, q.y), 0.) - round;
-  return smoothstep(-soft*.25, soft, d);
+  return smoothstep(0., soft, d);                       // fully dimmed right up to the box's edge, rising outside it
 }
-float clearOfWords(){ return mix(.15, 1., box(uText, 120., 260.))*box(uNav, 20., 70.); }`;
+float clearOfWords(){ return mix(.15, 1., box(uText, 80., 170.))*box(uNav, 20., 70.); }`;
 
 // the factory for each background, fetched only on its own page; each returns { size(scale), draw(t, view), clear() }
 // or null when its shaders cannot be built
 const MAKE = {
   rings: () => import('./rings.js').then(m => m.createRings),
+  flow: () => import('./flow.js').then(m => m.createFlow),
 };
 
 const set = s => { document.documentElement.dataset.bg = s; };
@@ -48,7 +49,8 @@ export async function startBackground({ canvas, host, kind, reduce, fixedAge }) 
   const anchor = host.querySelector('canvas:not(#bg)') || host, words = document.querySelector('.side-body'), nav = document.querySelector('.side-top .home-link');
   const view = () => {
     const a = anchor.getBoundingClientRect();
-    return { W: canvas.width, H: canvas.height, scale, centre: [(a.left + a.width / 2) * scale, (innerHeight - a.top - a.height / 2) * scale],
+    // W and H are full-scale canvas pixels, whatever size a background draws at
+    return { W: Math.round(innerWidth * scale), H: Math.round(innerHeight * scale), scale, centre: [(a.left + a.width / 2) * scale, (innerHeight - a.top - a.height / 2) * scale],
       text: flip(words && words.getBoundingClientRect(), scale), nav: flip(nav && nav.getBoundingClientRect(), scale) };
   };
   const draw = t => { if (!bg || lost || !visible) return; bg.draw(t, view()); drawn = true; };
