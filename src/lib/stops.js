@@ -5,7 +5,7 @@ export const STOPS = [
   { id: 'about', label: 'About', path: '/about/', art: 'heart' },
   { id: 'now', label: 'Now', path: '/now/', art: 'eyes' },
   { id: 'clinical-experience', label: 'Clinical Experience', path: '/clinical-experience/', art: 'hands' },
-  { id: 'research', label: 'Research', path: '/research/', art: null },
+  { id: 'research', label: 'Research', path: '/research/', art: 'neuron' },
   { id: 'teaching', label: 'Teaching', path: '/teaching/', art: null },
   { id: 'writing', label: 'Writing', path: '/writing/', art: null },
   { id: 'life', label: 'Life', path: '/life/', art: 'lungs' },
