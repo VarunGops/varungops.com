@@ -20,7 +20,7 @@ float box(vec4 r, float round, float soft){
   float d = length(max(q, 0.)) + min(max(q.x, q.y), 0.) - round;
   return smoothstep(0., soft, d);                       // fully dimmed right up to the box's edge, rising outside it
 }
-float clearOfWords(){ return mix(.15, 1., box(uText, 60., 110.))*box(uNav, 20., 70.); }`;
+float clearOfWords(){ return mix(.15, 1., box(uText, 60., 110.))*mix(.35, 1., box(uNav, 40., 120.)); }`;
 
 // the factory for each background, fetched only on its own page; each returns { size(scale), draw(t, view), clear() }
 // or null when its shaders cannot be built

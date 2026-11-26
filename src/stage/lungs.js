@@ -27,14 +27,14 @@ void main(){
   if (uPass < .5) { o = vec4(0., 0., 0., 1.); return; }       // solid: what is behind the lungs stays hidden
   vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
   float ndl = clamp(dot(n, normalize(vec3(-.45, .55, .7))), 0., 1.), rim = pow(1. - clamp(n.z, 0., 1.), 2.2);
-  float coord = vP.y*uFreq, f = abs(fract(coord) - .5)*2., w = fwidth(coord)*1.6;
+  float coord = (vP.y - .35*vP.z)*uFreq, f = abs(fract(coord) - .5)*2., w = fwidth(coord)*1.6;   // planes tilted towards the eye, so each line bows over the lobes
   float thick = bronchus ? .32 : mix(.05, .58, ndl*ndl);      // the engraver's line swells in the light
   float line = 1. - smoothstep(thick - w, thick + w, f);
   float c2 = dot(vP, normalize(vec3(1., 1., 0.)))*uFreq, f2 = abs(fract(c2) - .5)*2., w2 = fwidth(c2)*1.6;
-  float hatch = (1. - smoothstep(.12 - w2, .12 + w2, f2))*smoothstep(.7, .95, ndl);   // a crossing set, only in full light
-  float I = max(line, hatch*.7)*(.25 + .75*ndl) + rim*.55;
+  float hatch = (1. - smoothstep(.06 - w2, .06 + w2, f2))*smoothstep(.75, .97, ndl);   // a fine crossing set, only in full light
+  float I = max(line, hatch*.3)*(.25 + .75*ndl) + rim*.55;
   vec3 col = vec3(1., .14, .2);
-  if (bronchus) { I = line*(.5 + .5*ndl)*.45; col = vec3(1., .42, .42); }   // finer and paler, seen through the lung
+  if (bronchus) { I = line*(.6 + .4*ndl)*.28; col = vec3(1., .36, .38); }   // the same lines, fainter, seen through the lung
   I *= .9 + .15*uB;                                           // a little brighter full of air
   o = vec4(col*I, 0.);
 }`;
@@ -66,7 +66,7 @@ export function createLungs(canvas, mesh, json, { preserve = false, box = canvas
       gl.useProgram(pr.p); gl.bindVertexArray(vao);
       const u = pr.u;
       gl.uniform2f(u.uRes, canvas.width, canvas.height); gl.uniform2f(u.uC, fit.cx, fit.cy); gl.uniform1f(u.uS, fit.s); gl.uniform1f(u.uB, b); gl.uniform3fv(u.uSize, json.size);
-      gl.uniform1f(u.uFreq, Math.min(0.5, Math.max(0.16, fit.s / 9)));   // lines per mm: about nine device px apart, some seventy across the lungs' height
+      gl.uniform1f(u.uFreq, Math.min(0.7, Math.max(0.16, fit.s / Math.max(5, Math.min(7, 2.5 * sc)))));   // lines per mm: about seven device px apart, two and a half CSS px on a phone
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.disable(gl.BLEND); gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);
       gl.uniform1f(u.uPass, 0); gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, 0);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.depthMask(false); gl.depthFunc(gl.LEQUAL); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);

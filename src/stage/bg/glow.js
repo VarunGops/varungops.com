@@ -14,7 +14,10 @@ const FEED_FS = `#version 300 es
 precision highp float;
 uniform sampler2D uPrev; uniform vec2 uRes, uC; uniform float uK, uFade;
 out vec4 o;
-void main(){ vec2 p = uC + (gl_FragCoord.xy - uC)/uK; o = texture(uPrev, p/uRes)*uFade; }`;
+void main(){
+  vec2 p = uC + (gl_FragCoord.xy - uC)/uK, e = vec2(.5, 0.);
+  o = (texture(uPrev, p/uRes)*2. + texture(uPrev, (p + e)/uRes) + texture(uPrev, (p - e)/uRes) + texture(uPrev, (p + e.yx)/uRes) + texture(uPrev, (p - e.yx)/uRes))/6.*uFade;   // a touch of blur each step: each echo softens as it ages
+}`;
 // the outline: a soft line, brightest at its core
 const LINE_VS = `#version 300 es
 in vec2 aP; in float aSide; uniform vec2 uRes; out float vSide;
@@ -26,12 +29,13 @@ void main(){ float k = exp(-vSide*vSide*3.)*uGain; o = vec4(k, k, k, k); }`;
 // to the screen: red, burning towards pink where the trails pile up, dimmed under the words
 const SHOW_FS = `#version 300 es
 precision highp float;
-uniform sampler2D uImg; uniform vec2 uRes;
+uniform sampler2D uImg; uniform vec2 uRes; uniform float uCx, uGap, uTop;
 ${WORDS}
 out vec4 o;
 void main(){
-  float v = texture(uImg, gl_FragCoord.xy/uRes).r, g = 1. - exp(-v*1.6);
-  vec3 c = mix(vec3(1., .137, .22), vec3(1., .72, .74), smoothstep(.55, 1., g))*g*clearOfWords();
+  float v = texture(uImg, gl_FragCoord.xy/uRes).r*mix(gl_FragCoord.y > uTop ? .3 : .5, 1., smoothstep(0., uGap*1.5, abs(gl_FragCoord.x - uCx)));   // weaker in the gap, where both lungs' echoes meet, and weaker still above them
+  float g = 1. - exp(-v*1.6);
+  vec3 c = mix(vec3(1., .137, .22), vec3(1., .72, .74), smoothstep(.8, .98, g))*g*clearOfWords();   // pink only where the newest edge is
   o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
 
@@ -50,7 +54,7 @@ export function createGlow(canvas, { lite = false, preserve = false } = {}, json
   gl.enableVertexAttribArray(line.a('aP')); gl.vertexAttribPointer(line.a('aP'), 2, gl.FLOAT, false, 12, 0);
   gl.enableVertexAttribArray(line.a('aSide')); gl.vertexAttribPointer(line.a('aSide'), 1, gl.FLOAT, false, 12, 8);
   gl.bindVertexArray(null);
-  let tex = [], fb = [], cur = 0, W = 0, H = 0, simT = null, lastB = 0;
+  let tex = [], fb = [], cur = 0, W = 0, H = 0, simT = null, lastB = 0, nStep = 0, live = null;
   const target = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
     if (hdr) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, W, H, 0, gl.RGBA, gl.HALF_FLOAT, null); else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
@@ -60,8 +64,8 @@ export function createGlow(canvas, { lite = false, preserve = false } = {}, json
 
   // one feedback step at time t: the old picture grows and fades, the edge is drawn where it is now
   const step = (t, v) => {
-    const b = breath(t), out = b < lastB; lastB = b;
-    const fit = fitBox(v.rect, json.size, v.scale), cx = fit.cx, cy = H - fit.cy, half = (lite ? 1.6 : 2.2) * v.scale;
+    const b = breath(t), out = b < lastB; lastB = b; nStep++;
+    const fit = fitBox(v.rect, json.size, v.scale), cx = fit.cx, cy = H - fit.cy, half = (lite ? 2.2 : 3.0) * v.scale;
     let n = 0;
     for (const L of loops) {
       const P = L.map(p => { const q = breathe(p, b, json.size); return [cx + q[0] * fit.s, cy + q[1] * fit.s]; });
@@ -74,12 +78,13 @@ export function createGlow(canvas, { lite = false, preserve = false } = {}, json
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb[nxt]); gl.viewport(0, 0, W, H); gl.disable(gl.BLEND);
     gl.useProgram(feed.p); gl.bindVertexArray(qvao); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex[cur]);
     gl.uniform1i(feed.u.uPrev, 0); gl.uniform2f(feed.u.uRes, W, H); gl.uniform2f(feed.u.uC, cx, cy);
-    gl.uniform1f(feed.u.uK, out ? 1.009 : 1.002); gl.uniform1f(feed.u.uFade, 0.985);   // slow to fade, so the trails reach well out
+    gl.uniform1f(feed.u.uK, out ? 1.012 : 1.002); gl.uniform1f(feed.u.uFade, out ? 0.975 : 0.965);   // breathing out the echoes stream away; breathing in they settle and fade
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
     gl.useProgram(line.p); gl.bindVertexArray(lvao); gl.bindBuffer(gl.ARRAY_BUFFER, lbuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, verts, 0, n);
-    gl.uniform2f(line.u.uRes, W, H); gl.uniform1f(line.u.uGain, 0.09);
-    gl.drawArrays(gl.TRIANGLES, 0, n / 3);
+    gl.uniform2f(line.u.uRes, W, H); gl.uniform1f(line.u.uGain, 0.5);
+    live = { cx, gap: 14 * fit.s, top: cy + json.size[1] / 2 * fit.s };
+    if (nStep % 7 === 0) gl.drawArrays(gl.TRIANGLES, 0, n / 3);   // stamped every seventh step: separate echoes of the edge, not a smear
     gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     cur = nxt;
   };
@@ -95,7 +100,7 @@ export function createGlow(canvas, { lite = false, preserve = false } = {}, json
       if (preserve || simT == null || t - simT > 0.5) { simT = t - 4; lastB = breath(simT); }
       let k = 0; while (simT + STEP <= t && k++ < 260) { simT += STEP; step(simT, v); }
       clear(); gl.useProgram(show.p); gl.bindVertexArray(qvao); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex[cur]);
-      gl.uniform1i(show.u.uImg, 0); gl.uniform2f(show.u.uRes, W, H); gl.uniform4fv(show.u.uText, v.text); gl.uniform4fv(show.u.uNav, v.nav);
+      gl.uniform1i(show.u.uImg, 0); gl.uniform2f(show.u.uRes, W, H); gl.uniform1f(show.u.uCx, live ? live.cx : W / 2); gl.uniform1f(show.u.uGap, live ? live.gap : 0); gl.uniform1f(show.u.uTop, live ? live.top : H); gl.uniform4fv(show.u.uText, v.text); gl.uniform4fv(show.u.uNav, v.nav);
       gl.drawArrays(gl.TRIANGLES, 0, 3); gl.bindVertexArray(null);
     },
   };

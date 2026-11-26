@@ -131,7 +131,7 @@ test.describe('Life: glowing lines', () => {
     expect(near.mean * r.w * r.h).toBeGreaterThan(0.6 * all.mean * (await page.evaluate(() => innerWidth * innerHeight)));
   });
   test('the words sit on a dimmed background', async ({ page }) => {
-    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    await page.goto('/life/?hage=4.2&hyaw=0'); await live(page);   // mid breath out: the echoes cross the words
     const [under, bare] = await dimmedUnderWords(page);
     expect(bare).toBeGreaterThan(0.2); expect(under).toBeLessThan(bare * 0.45);
   });
