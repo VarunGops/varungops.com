@@ -11,6 +11,7 @@ The brain, its fibre tracts and the heart on the home page are built from open a
 | Fibre tracts | `hcp1065_avg_tracts_tt.zip` (144 MB) | https://github.com/data-others/atlas/releases/tag/hcp1065 | CC BY-SA 4.0 (Yeh, Nat Commun 2022), plus Human Connectome Project acknowledgement |
 | Heart | `partof_BP3D_4.0_obj_99.zip` (62 MB) and `partof_element_parts.txt` | https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/ | BodyParts3D. File headers say CC BY-SA 2.1 Japan, the licence page says CC BY 4.0. Treated here as share-alike. |
 | Eyes (Now page) | `3d-vh-m-eye-l.glb` (27 MB) and `3d-vh-m-eye-r.glb` (21 MB) | https://3d.nih.gov/entries/3DPX-020998 and https://3d.nih.gov/entries/3DPX-020999 (Human Reference Atlas, from the Visible Human Male) | CC BY 4.0 |
+| Lungs (Life page) | `3d-vh-f-lung.glb` (23 MB) | https://3d.nih.gov/entries/3DPX-021008 (download: https://3d.nih.gov/entries/download/21008/2). The page says male; every part in the file is the Visible Human Female's (`VH_F_…`). | CC BY 4.0 |
 | Hands (Clinical Experience page) | `lincoln_hands-150k-4096.glb` (14 MB) | https://3d.si.edu/object/3d/abraham-lincoln:d8c642d6-4ebc-11ea-b77f-2e728ce88125 (National Portrait Gallery, S/NPG.71.6; download from the 3D viewer) | CC0 |
 
 ## Build
@@ -28,6 +29,7 @@ python3 ../build.py
 
 - `hands.bin`, `hands.json` (and `-lite`): `prep_hands.py raw/lincoln_hands-150k-4096.glb public/data`. The two casts, welded and simplified, each turned for the drawing (the right hand, a fist round a cut broom handle, reaches down back-first; the left reaches up palm-first) and centred on its wrist. Seven string anchors per hand are real vertices on the visible side of the fingers.
 
+- `lungs.bin`, `lungs.json` (and `-lite`): `prep_lungs.py raw/3d-vh-f-lung.glb public/data`. Both lungs in millimetres in the Visible Human frame, centred on their bounding box: the bronchopulmonary segments and hilum as the surface, the lobar and segmental bronchi inside. The bronchial cartilage rings are left out. `outline` holds the lungs' front-view silhouette, one loop per lung.
 - `eyes.bin`, `eyes.json` (and `-lite`): `prep_eyes.py raw/3d-vh-m-eye-l.glb raw/3d-vh-m-eye-r.glb public/data`. Both eyes in millimetres in the Visible Human frame (+x the subject's left, +y up, +z forward), centred between the globes: sclera, cornea, iris, pupil, lens, ciliary body, retina and choroid, welded and simplified. The models have no extraocular muscles or optic nerve, and none are added. Fluids, conjunctiva and the drainage angle are left out.
 
 - `brain.bin`, `brain.json`: the pial surface of the MNI ICBM 2009c template (cerebrum, cerebellum, brainstem) as about 75,000 vertices. Each vertex carries its lobe, its sulcal depth and its height above a smoothed copy of the surface, which is how the page lights every gyrus and leaves every sulcus dark.
@@ -44,6 +46,7 @@ BodyParts3D 4.0 has no outer ventricular wall, only the two ventricular cavities
 - Tracts adapted from the HCP-1065 tractography atlas (Yeh FC, Nat Commun 13, 4933, 2022), CC BY-SA 4.0. Data were provided by the Human Connectome Project, WU-Minn Consortium.
 - Heart adapted from BodyParts3D, (c) The Database Center for Life Science.
 - Eyes adapted from the Human Reference Atlas 3D reference organs (NIH 3D 3DPX-020998 and 3DPX-020999), created from the Visible Human Male, National Library of Medicine. CC BY 4.0.
+- Lungs adapted from the Human Reference Atlas 3D reference organs (NIH 3D 3DPX-021008), created from the Visible Human Female, National Library of Medicine. CC BY 4.0.
 - Hands adapted from 3D scans of plaster casts of Abraham Lincoln's hands, after Leonard Wells Volk, 1860. National Portrait Gallery, Smithsonian Institution, CC0.
 
 The adapted tract and heart files are offered under the same share-alike terms.
