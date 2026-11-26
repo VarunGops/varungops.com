@@ -3,6 +3,7 @@
 // the wider pieces draw on #art. The still shows until a frame is drawn, and stays when one cannot be.
 interface Props { kind: 'heart' | 'eyes' | 'hands' }
 const { kind } = Astro.props;
+const BG = new Set(['heart', 'hands']);   // the pages with a background behind the anatomy (src/stage/bg/layer.js)
 const ALT = {
   eyes: 'A pair of human eyes from the front, in colour, with fine strands of light fanning out from the pupils',
   hands: 'Two human hands cast from life, drawn in grey, one reaching down and one reaching up, joined by red strings',
@@ -10,6 +11,7 @@ const ALT = {
 ---
 {kind === 'heart' ? (
   <div class="art" data-art="heart">
+    <canvas id="bg" class="bg-canvas" aria-hidden="true"></canvas>
     <div class="heart-wrap art-heart">
       <img class="still still-heart" src="/still/heart.webp" alt="An anatomical heart drawn as a red engraving" width="800" height="1000" decoding="async" />
       <canvas id="heart" class="heart" aria-hidden="true"></canvas>
@@ -17,6 +19,7 @@ const ALT = {
   </div>
 ) : (
   <div class="art art-wide" data-art={kind}>
+    {BG.has(kind) && <canvas id="bg" class="bg-canvas" aria-hidden="true"></canvas>}
     <picture>
       <source media="(max-width: 699px)" srcset={`/still/${kind}-phone.webp`} />
       <img class="still still-art" src={`/still/${kind}.webp`} alt={ALT[kind]} width="1280" height="640" decoding="async" />

@@ -5,7 +5,7 @@ import { loadPart, decodeEyes, decodeHands } from './data.js';
 
 const html = document.documentElement, set = s => { html.dataset.stage = s; };
 const host = document.querySelector('[data-art]'), kind = host && host.dataset.art;
-const canvas = host && host.querySelector('canvas');
+const canvas = host && host.querySelector('canvas:not(#bg)');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const lite = innerWidth < 700;
 
@@ -44,5 +44,8 @@ async function start() {
   art.size();
   addEventListener('resize', relayout);
   if (reduce) draw(0); else requestAnimationFrame(frame);
+  // the background behind it, on its own canvas, once the anatomy is drawing (src/stage/bg/layer.js)
+  const bgCanvas = document.getElementById('bg');
+  if (bgCanvas) import('./bg/layer.js').then(m => m.startBackground({ canvas: bgCanvas, host, kind, reduce, fixedAge: AGE })).catch(err => { html.dataset.bg = 'off'; console.warn('the background did not start:', err.message); });
 }
 start();

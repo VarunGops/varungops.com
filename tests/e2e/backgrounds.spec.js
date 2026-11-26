@@ -1,0 +1,88 @@
+import { test, expect } from '@playwright/test';
+
+// The backgrounds behind the section pages' anatomy (#bg): their own canvas, started once the anatomy is live,
+// dimmed under the words, and never able to take the anatomy down with them.
+test.use({ reducedMotion: 'reduce' });                       // software WebGL: one frame, not a loop
+test.describe.configure({ timeout: 240000 });
+
+const noWebGL = () => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (k, ...a) { return /webgl/.test(k) ? null : g.call(this, k, ...a); }; };
+const countRaf = () => { window.__raf = 0; const r = requestAnimationFrame; window.requestAnimationFrame = f => { window.__raf++; return r(f); }; };
+const live = async page => { await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 }); await expect(page.locator('html')).toHaveAttribute('data-bg', 'live', { timeout: 60000 }); };
+
+// pixels of #bg, scaled to a small sample: how many meet `cond`, and the brightness mean and spread, over the whole
+// canvas or over a box (window CSS pixels)
+const sample = (page, cond = 'false', box = null) => page.evaluate(([cond, box]) => {
+  const c = document.querySelector('#bg'), k = c.width / innerWidth, w = 96, h = 48;
+  const [x, y, bw, bh] = box ? [box.x * k, box.y * k, box.w * k, box.h * k] : [0, 0, c.width, c.height];
+  const o = document.createElement('canvas'); o.width = w; o.height = h; const g = o.getContext('2d'); g.drawImage(c, x, y, bw, bh, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h).data, f = new Function('r', 'g', 'b', `return ${cond}`); let n = 0, s = 0, s2 = 0;
+  for (let i = 0; i < d.length; i += 4) { if (f(d[i], d[i + 1], d[i + 2])) n++; const v = (d[i] + d[i + 1] + d[i + 2]) / 3; s += v; s2 += v * v; }
+  const m = s / (w * h); return { n, mean: m, sd: Math.sqrt(Math.max(0, s2 / (w * h) - m * m)), data: Array.from(d.filter((_, i) => i % 16 === 0)) };
+}, [cond, box]);
+// the words' box on screen, and a box of the same size beside or above it, clear of the words
+const wordsAndClear = page => page.evaluate(() => {
+  const r = document.querySelector('.side-body').getBoundingClientRect(), top = Math.max(0, r.top), bottom = Math.min(innerHeight, r.bottom);
+  const h = Math.max(40, bottom - top), w = r.width;
+  return { words: { x: r.left, y: top, w, h }, clear: { x: r.left, y: Math.max(0, top - h - 20), w, h: Math.min(h, top - 20 > 40 ? top - 20 : h) } };
+});
+
+test.describe('About: pulse rings', () => {
+  test('draws red rings round the heart', async ({ page }) => {
+    await page.goto('/about/?hage=0.3&hyaw=0'); await live(page);
+    expect((await sample(page, 'r > 25 && r > 2.5 * g && r > 2.5 * b')).n).toBeGreaterThan(40);   // thin rings, averaged down in the sample: red, not bright
+  });
+  test('the rings move with the beat', async ({ page }) => {
+    await page.goto('/about/?hage=0.1&hyaw=0'); await live(page); const a = (await sample(page)).data;
+    await page.goto('/about/?hage=0.7&hyaw=0'); await live(page); const b = (await sample(page)).data;
+    expect(a.filter((v, i) => Math.abs(v - b[i]) > 20).length / a.length).toBeGreaterThan(0.02);
+  });
+  test('the words sit on a dimmed background', async ({ page }) => {
+    await page.goto('/about/?hage=0.3&hyaw=0'); await live(page);
+    const { words } = await wordsAndClear(page), inside = await sample(page, 'false', words), all = await sample(page);
+    const peak = d => Math.max(...d);                         // the brightest of the rings, under the words and anywhere
+    expect(peak(inside.data)).toBeLessThan(peak(all.data) * 0.45);
+  });
+  test('the heart keeps beating when the background\'s context is lost', async ({ page }) => {
+    await page.goto('/about/?hage=0.3&hyaw=0'); await live(page);
+    await page.evaluate(() => document.querySelector('#bg').getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
+    await expect(page.locator('html')).toHaveAttribute('data-bg', 'off');
+    expect(await page.locator('#bg').evaluate(c => getComputedStyle(c).visibility)).toBe('hidden');
+    await expect(page.locator('html')).toHaveAttribute('data-stage', 'live');
+  });
+  test('without WebGL 2 there is no background and the heart\'s still shows', async ({ page }) => {
+    const errors = []; page.on('pageerror', e => errors.push(String(e)));
+    await page.addInitScript(noWebGL); await page.goto('/about/');
+    await expect(page.locator('html')).toHaveAttribute('data-stage', 'still');
+    await expect(page.locator('img.still-heart')).toBeVisible();
+    expect(await page.locator('html').getAttribute('data-bg')).not.toBe('live');
+    expect(errors).toEqual([]);
+  });
+  test('with reduced motion one frame, no loop', async ({ page }) => {
+    await page.addInitScript(countRaf); await page.goto('/about/'); await live(page);
+    const before = await page.evaluate(() => window.__raf); await page.waitForTimeout(1500);
+    expect(await page.evaluate(() => window.__raf) - before).toBeLessThanOrEqual(1);
+  });
+  test('scrolled to the end, the rings stop and clear', async ({ page }) => {
+    await page.goto('/about/?hage=0.3&hyaw=0'); await live(page);
+    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await page.waitForTimeout(1000);
+    expect((await sample(page, 'r > 30')).n).toBe(0);
+  });
+  test('a resize resizes the background', async ({ page }) => {
+    await page.goto('/about/?hage=0.3&hyaw=0'); await live(page);
+    await page.setViewportSize({ width: 600, height: 900 }); await page.waitForTimeout(800);
+    const [w, want] = await page.evaluate(() => [document.querySelector('#bg').width, Math.round(600 * Math.min(devicePixelRatio, 1.5, Math.sqrt(7e6 / (600 * 900))))]);
+    expect(w).toBe(want);
+  });
+  test('back from home, the background is live again', async ({ page }) => {
+    await page.goto('/about/'); await live(page);
+    await page.locator('.side-top .home-link').click(); await page.waitForURL(/\/(#.*)?$/);
+    await page.goBack(); await live(page);
+  });
+  test('Now has no background canvas of its own', async ({ page }) => {
+    await page.goto('/now/'); await expect(page.locator('#bg')).toHaveCount(0);
+  });
+  test('the credit names the source', async ({ page }) => {
+    await page.goto('/about/');
+    await expect(page.getByRole('contentinfo')).toContainText('Pulse rings adapted from Jaume Sánchez’s DOF Tunnel (Codevember 2016), CC BY 4.0.');
+  });
+});
