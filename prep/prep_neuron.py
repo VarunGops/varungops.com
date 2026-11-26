@@ -54,19 +54,36 @@ def _adjacent(f):
     return adj
 
 
-def path_dist(frags, soma):
-    """Distance along the cell from the soma, per node: along each fragment from its node nearest the soma, plus the
-    straight gap from that node to the soma (fragments are pieces of one cell that do not share nodes)."""
-    out = []
-    for f in frags:
-        d = np.full(len(f["P"]), np.inf); start = int(np.argmin(np.linalg.norm(f["P"] - soma, axis=1)))
-        d[start] = float(np.linalg.norm(f["P"][start] - soma)); adj = _adjacent(f); stack = [start]
+def path_dist(frags, soma, join=5.0):
+    """Distance along the cell from the soma, per node. The fragments are pieces of one cell that do not share nodes, so
+    they are solved outwards from the soma: each next piece is the one nearest to those already solved, and starts from
+    where it joins them (their distance there plus the small gap) when that gap is under `join` um; a piece with
+    nothing that close starts from its straight distance to the soma."""
+    from scipy.spatial import cKDTree
+    out = [None] * len(frags)
+    def walk(f, start, d0):
+        d = np.full(len(f["P"]), np.inf); d[start] = d0; adj = _adjacent(f); stack = [start]
         while stack:
             k = stack.pop()
             for q, w in adj[k]:
                 if d[q] > d[k] + w:
                     d[q] = d[k] + w; stack.append(q)
-        out.append(d)
+        return d
+    todo = set(range(len(frags)))
+    while todo:
+        solved = [i for i in range(len(frags)) if out[i] is not None]
+        best = None
+        if solved:
+            P = np.vstack([frags[i]["P"] for i in solved]); D = np.concatenate([out[i] for i in solved]); kd = cKDTree(P)
+            for i in todo:
+                g, k = kd.query(frags[i]["P"]); n = int(np.argmin(g))
+                if best is None or g[n] < best[0]: best = (float(g[n]), i, n, float(D[k[n]]))
+        if best is not None and best[0] < join:
+            _, i, n, dj = best; out[i] = walk(frags[i], n, dj + best[0])
+        else:                                         # nothing joins: the piece nearest the soma, from its straight gap
+            gaps = {i: np.linalg.norm(frags[i]["P"] - soma, axis=1) for i in todo}
+            i = min(todo, key=lambda i: gaps[i].min()); n = int(np.argmin(gaps[i])); out[i] = walk(frags[i], n, float(gaps[i][n]))
+        todo.discard(i)
     return out
 
 

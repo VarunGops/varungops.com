@@ -23,6 +23,12 @@ class Upright(unittest.TestCase):
 
 
 class PathDist(unittest.TestCase):
+    def test_a_piece_that_joins_another_carries_on_from_where_it_joins(self):
+        a = frag([[0, 0, 0], [0, 10, 0], [10, 10, 0], [20, 10, 0]], [-1, 0, 1, 2])   # up, then out to the right
+        b = frag([[21, 10, 0], [31, 10, 0]], [-1, 0])                                # a separate piece, 1 um past a's end
+        d = path_dist([a, b], np.zeros(3))
+        np.testing.assert_allclose(d[0], [0, 10, 20, 30]); np.testing.assert_allclose(d[1], [31, 41])   # not 23.3, the straight gap
+
     def test_distance_runs_along_the_fragment_plus_the_gap_to_the_soma(self):
         a = frag([[0, 0, 0], [0, 10, 0], [0, 20, 0]], [-1, 0, 1])          # from the soma upwards
         b = frag([[30, 0, 0], [40, 0, 0], [50, 0, 0]], [-1, 0, 1])          # a separate piece, 30 µm away
