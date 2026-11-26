@@ -98,7 +98,7 @@ export function createPair(canvas, data, { preserve = false, box = canvas } = {}
       gl.useProgram(pr.p); gl.bindVertexArray(vao); cam(pr.u, fit, a);
       gl.uniform2f(pr.u.uMax, maxD[0], maxD[1]); gl.uniform1f(pr.u.uF1, s.front1); gl.uniform1f(pr.u.uF2, s.front2); gl.uniform1f(pr.u.uSettle, s.settle); gl.uniform1f(pr.u.uSpeed, SPEED); gl.uniform1f(pr.u.uDSyn, j.dSyn);
       const br = box.getBoundingClientRect(); gl.uniform1f(pr.u.uBottom, canvas.height - br.bottom * sc); const link = document.querySelector('.side-top .home-link'), lb = link ? link.getBoundingClientRect().bottom : br.top;
-      gl.uniform1f(pr.u.uTop, canvas.height - (lb + 40) * sc); gl.uniform1f(pr.u.uLeft, 24 * sc);   // gone 40 px below the link home; clear of the edge rule gl.uniform1f(pr.u.uPxF, sc);
+      gl.uniform1f(pr.u.uTop, canvas.height - (lb + 40) * sc); gl.uniform1f(pr.u.uLeft, 24 * sc); gl.uniform1f(pr.u.uPxF, sc);   // gone 40 px below the link home; clear of the edge rule
       gl.blendEquation(gl.MAX); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, data.nseg); gl.blendEquation(gl.FUNC_ADD);
       gl.useProgram(dots.p); gl.bindVertexArray(dvao); cam(dots.u, fit, a);
       gl.uniform1f(dots.u.uPh, s.ph); gl.uniform1f(dots.u.uGlow1, Math.exp(-s.ph * 3)); gl.uniform1f(dots.u.uGlow2, s.front2 < 0 ? 0 : Math.exp(-s.front2 / 120));

@@ -225,3 +225,4 @@ test.describe('Teaching: the particle stream', () => {
     await expect(page.getByRole('contentinfo')).toContainText('The particle stream follows Jaume Sánchez’s Plasma waves (Codevember 2017), CC BY 4.0.');
   });
 });
+
