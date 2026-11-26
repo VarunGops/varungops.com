@@ -40,7 +40,7 @@ try {
     return o.toDataURL('image/webp', 0.86);
   });
   const phone = await browser.newPage({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2 });
-  for (const [name, url] of [['eyes', '/now/?hage=14&hyaw=0'], ['hands', '/clinical-experience/?hage=7&hyaw=0'], ['lungs', '/life/?hage=2&hyaw=0'], ['neuron', '/research/?hage=2.6&hyaw=0.15']]) {
+  for (const [name, url] of [['eyes', '/now/?hage=14&hyaw=0'], ['hands', '/clinical-experience/?hage=7&hyaw=0'], ['lungs', '/life/?hage=2&hyaw=0'], ['neuron', '/research/?hage=2.6&hyaw=0.15'], ['pair', '/teaching/?hage=1.35&hyaw=0.1']]) {
     for (const [p, suffix] of [[page, ''], [phone, '-phone']]) {
       await p.goto(base + url); await p.waitForFunction(() => document.documentElement.dataset.stage === 'live', null, { timeout: 180000 }); await p.waitForTimeout(300);
       await save(name + suffix, await crop(p));

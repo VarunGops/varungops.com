@@ -74,16 +74,17 @@ export function decodeLungs(json, buf) {
 // byte; then per cell x y z int16 tenths, size uint8, a spare byte
 export function decodeNeuron(json, buf) {
   if (buf.byteLength < NEED.neuron(json)) throw new RangeError('neuron.bin is truncated');
-  const n = json.segs, m = json.cells, dv = new DataView(buf), seg = new Float32Array(n * 13), cells = new Float32Array(m * 4);
+  const n = json.segs, m = json.cells, dv = new DataView(buf), seg = new Float32Array(n * 14), cells = new Float32Array(m * 4);
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < n; i++) {
-    const o = i * 22, w = i * 13;
+    const o = i * 22, w = i * 14;
     for (let k = 0; k < 6; k++) { const v = dv.getInt16(o + k * 2, true) / 10; seg[w + k] = v; const a = k % 3; if (v < lo[a]) lo[a] = v; if (v > hi[a]) hi[a] = v; }
     seg[w + 6] = dv.getUint16(o + 12, true) / 10; seg[w + 7] = dv.getUint16(o + 14, true) / 10; seg[w + 8] = dv.getUint8(o + 16) * 0.05; seg[w + 9] = dv.getUint8(o + 17);
     for (let k = 0; k < 3; k++) seg[w + 10 + k] = dv.getInt8(o + 18 + k) / 127;
+    seg[w + 13] = dv.getUint8(o + 21);   // the cell (0 or 1) in a pair; 0 for the single neuron
   }
   for (let i = 0; i < m; i++) { const o = n * 22 + i * 8; for (let k = 0; k < 3; k++) cells[i * 4 + k] = dv.getInt16(o + k * 2, true) / 10; cells[i * 4 + 3] = dv.getUint8(o + 6); }
-  return { nseg: n, seg, ncell: m, cells, lo, hi, maxDist: json.maxDist };
+  return { nseg: n, seg, ncell: m, cells, lo, hi, maxDist: json.maxDist, json };
 }
 
 // hands.bin: per vertex 3 x uint16 position, 3 x int8 normal, uint8 hand (0 upper, 1 lower), padded to 4 bytes; then uint32 indices
@@ -117,6 +118,7 @@ export const NEED = {
   heart: j => Math.ceil(j.verts * 10 / 4) * 4 + j.faces * 12,
   lungs: j => j.verts * 12 + j.faces * 12,
   neuron: j => j.segs * 22 + j.cells * 8,
+  pair: j => j.segs * 22,
 };
 const kindOf = name => name.replace('-lite', '');
 

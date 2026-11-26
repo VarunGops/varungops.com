@@ -57,7 +57,7 @@ export function createNeuron(canvas, data, { preserve = false, box = canvas } = 
   const cl = pr.a('aCorner'); gl.enableVertexAttribArray(cl); gl.vertexAttribPointer(cl, 2, gl.FLOAT, false, 0, 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, data.seg, gl.STATIC_DRAW);
   for (const [name, size, off] of [['iA', 3, 0], ['iB', 3, 3], ['iDA', 1, 6], ['iDB', 1, 7], ['iT', 1, 9], ['iDir', 3, 10]]) {
-    const l = pr.a(name); if (l < 0) continue; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, 52, off * 4); gl.vertexAttribDivisor(l, 1);
+    const l = pr.a(name); if (l < 0) continue; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, 56, off * 4); gl.vertexAttribDivisor(l, 1);
   }
   gl.bindVertexArray(null);
   const svao = gl.createVertexArray();
