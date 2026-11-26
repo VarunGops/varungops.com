@@ -3,7 +3,7 @@
    quietly (data-bg="off") without touching the anatomy if it cannot run. */
 
 // which page has which background
-export const BG = { heart: 'rings', hands: 'flow', lungs: 'glow', neuron: 'field' };
+export const BG = { heart: 'rings', hands: 'flow', lungs: 'glow', neuron: 'field', pair: 'stream' };
 
 // device pixels per CSS pixel: at most 1.5, and never more than seven million pixels in all
 // what a background centres on: the heart itself on About; on a wide piece its box (its own canvas covers the screen)
@@ -28,6 +28,7 @@ const MAKE = {
   rings: () => import('./rings.js').then(m => m.createRings),
   flow: () => import('./flow.js').then(m => m.createFlow),
   field: () => Promise.all([import('./field.js'), import('../data.js')]).then(([m, d]) => d.loadPart(innerWidth < 700 ? 'neuron-lite' : 'neuron').then(p => (c, o) => m.createField(c, o, d.decodeNeuron(p.json, p.buf)))),   // the same data the neuron loaded
+  stream: () => Promise.all([import('./stream.js'), import('../data.js')]).then(([m, d]) => d.loadPart(innerWidth < 700 ? 'pair-lite' : 'pair').then(p => (c, o) => m.createStream(c, o, d.decodeNeuron(p.json, p.buf)))),
   glow: () => Promise.all([import('./glow.js'), fetch('/data/lungs.json').then(r => r.json())]).then(([m, json]) => (c, o) => m.createGlow(c, o, json)),   // the lungs' outline comes with their data
 };
 

@@ -205,3 +205,23 @@ test.describe('Research: the deep field of real cells', () => {
     await expect(page.getByRole('contentinfo')).toContainText('The deep field follows Jaume Sánchez’s Starfield (Codevember 2016), CC BY 4.0.');
   });
 });
+
+test.describe('Teaching: the particle stream', () => {
+  test('draws a stream across the page', async ({ page }) => {
+    await page.goto('/teaching/?hage=1.4&hyaw=0.1'); await live(page);
+    expect((await sample(page, 'r + g + b > 60')).n).toBeGreaterThan(40);
+  });
+  test('the words sit on a dimmed background', async ({ page }) => {
+    await page.goto('/teaching/?hage=1.4&hyaw=0.1'); await live(page);
+    const [under, bare] = await dimmedUnderWords(page);
+    expect(bare).toBeGreaterThan(0.02); expect(under).toBeLessThan(bare * 0.45);
+  });
+  test('with reduced motion the stream still shows', async ({ page }) => {
+    await page.goto('/teaching/'); await live(page);
+    expect((await sample(page, 'r + g + b > 60')).n).toBeGreaterThan(40);
+  });
+  test('the credit names the source', async ({ page }) => {
+    await page.goto('/teaching/');
+    await expect(page.getByRole('contentinfo')).toContainText('The particle stream follows Jaume Sánchez’s Plasma waves (Codevember 2017), CC BY 4.0.');
+  });
+});
