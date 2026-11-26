@@ -44,6 +44,9 @@ async function start() {
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (!visible && art && art.clear) art.clear(); }, { rootMargin: kind === 'heart' ? '0px' : '60% 0px' }).observe(kind === 'heart' ? canvas : host);
   art.size();
   addEventListener('resize', relayout);
+  // a wide piece's canvas is fixed to the screen and its box scrolls: with no loop running, draw again as the page moves
+  let queued = false;
+  if (reduce || STILL) addEventListener('scroll', () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; drawnOnce = false; if (visible) draw(reduce ? 0 : performance.now() / 1000); }); }, { passive: true });
   if (reduce) draw(0); else requestAnimationFrame(frame);
   // the background behind it, on its own canvas, once the anatomy is drawing (src/stage/bg/layer.js)
   const bgCanvas = document.getElementById('bg');

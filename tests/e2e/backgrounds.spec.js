@@ -149,3 +149,39 @@ test.describe('Life: glowing lines', () => {
     await expect(page.getByRole('contentinfo')).toContainText('The glowing lines are adapted from Jaume Sánchez’s Lines (Codevember 2016), CC BY 4.0.');
   });
 });
+
+// how much of the background's brightest glow lies within 24 CSS px of the lungs (their drawn silhouette on #art)
+const onTheEdge = page => page.evaluate(() => {
+  const w = Math.round(innerWidth / 4), h = Math.round(innerHeight / 4), grab = sel => { const c = document.querySelector(sel), o = document.createElement('canvas'); o.width = w; o.height = h; const g = o.getContext('2d'); g.drawImage(c, 0, 0, w, h); return g.getImageData(0, 0, w, h).data; };
+  const art = grab('#art'), bg = grab('#bg'), lum = []; for (let i = 0; i < bg.length; i += 4) lum.push(bg[i] * bg[i + 3] / 255);
+  const cut = [...lum].sort((a, b) => b - a)[Math.floor(lum.length * 0.01)];
+  let n = 0, near = 0;
+  for (let i = 0; i < lum.length; i++) {
+    if (lum[i] < cut || lum[i] < 10) continue; n++;
+    const x = i % w, y = Math.floor(i / w); let hit = false;
+    for (let dy = -6; dy <= 6 && !hit; dy++) for (let dx = -6; dx <= 6 && !hit; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < w && Y < h && art[(Y * w + X) * 4 + 3] > 128) hit = true; }
+    if (hit) near++;
+  }
+  return n ? near / n : 0;
+});
+test.describe('Life: the glow stays on the lungs\' edge', () => {
+  test('at a fixed moment', async ({ page }) => {
+    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    expect(await onTheEdge(page)).toBeGreaterThan(0.8);
+  });
+  test('after the page scrolls', async ({ page }) => {
+    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    await page.evaluate(() => scrollTo(0, 200)); await page.waitForTimeout(600);
+    expect(await onTheEdge(page)).toBeGreaterThan(0.8);
+  });
+  test('with a classic scrollbar taking width from the page', async ({ page }) => {
+    await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = 'html{overflow-y:scroll}::-webkit-scrollbar{width:40px;background:#222}'; document.head.append(s); }));
+    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    expect(await onTheEdge(page)).toBeGreaterThan(0.8);
+  });
+  test('a scroll does not run the whole warm-up again', async ({ page }) => {
+    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    const ms = await page.evaluate(() => { const t0 = performance.now(); for (let i = 1; i <= 5; i++) { scrollTo(0, i * 4); dispatchEvent(new Event('scroll')); } return performance.now() - t0; });
+    expect(ms).toBeLessThan(150);
+  });
+});

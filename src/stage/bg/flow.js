@@ -101,7 +101,7 @@ export function createFlow(canvas, { lite = false, preserve = false } = {}) {
   const clear = () => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); };
   return {
     size(scale) {
-      const W = Math.max(2, Math.round(innerWidth * scale * q)), H = Math.max(2, Math.round(innerHeight * scale * q));
+      const W = Math.max(2, Math.round(canvas.clientWidth * scale * q)), H = Math.max(2, Math.round(canvas.clientHeight * scale * q));
       if (canvas.width !== W || canvas.height !== H || !tex) { canvas.width = W; canvas.height = H; makeField(); }
       last = -1;
     },

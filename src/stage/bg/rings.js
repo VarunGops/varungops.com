@@ -55,7 +55,7 @@ export function createRings(canvas, { lite = false, preserve = false } = {}) {
   const vao = gl.createVertexArray(), count = lite ? 5 : 6, ring = new Float32Array(18);
   const clear = () => { gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); };
   return {
-    size(scale) { const W = Math.max(2, Math.round(innerWidth * scale)), H = Math.max(2, Math.round(innerHeight * scale)); if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; } },
+    size(scale) { const W = Math.max(2, Math.round(canvas.clientWidth * scale)), H = Math.max(2, Math.round(canvas.clientHeight * scale)); if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; } },
     clear,
     draw(t, v) {
       const speed = 0.35 * Math.min(v.W, v.H), rs = ringsAt(t, { count, speed });   // a third of the screen's shorter side a second: unhurried on a phone

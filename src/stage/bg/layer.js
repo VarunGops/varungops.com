@@ -32,7 +32,7 @@ const MAKE = {
 
 const set = s => { document.documentElement.dataset.bg = s; };
 // a box in window pixels, as canvas pixels from the bottom left: [x0, y0, x1, y1]
-const flip = (r, s) => (r ? [r.left * s, (innerHeight - r.bottom) * s, r.right * s, (innerHeight - r.top) * s] : [0, 0, 0, 0]);
+const flip = (r, s, vh) => (r ? [r.left * s, (vh - r.bottom) * s, r.right * s, (vh - r.top) * s] : [0, 0, 0, 0]);
 
 export async function startBackground({ canvas, host, kind, reduce, fixedAge }) {
   const html = document.documentElement, name = BG[kind], load = name && MAKE[name];
@@ -54,11 +54,12 @@ export async function startBackground({ canvas, host, kind, reduce, fixedAge }) 
   const view = () => {
     const a = anchor.getBoundingClientRect();
     // W and H are full-scale canvas pixels, whatever size a background draws at
-    return { W: Math.round(innerWidth * scale), H: Math.round(innerHeight * scale), scale, centre: [(a.left + a.width / 2) * scale, (innerHeight - a.top - a.height / 2) * scale], anchor: [a.width * scale, a.height * scale], rect: host.getBoundingClientRect(),
-      text: flip(words && words.getBoundingClientRect(), scale), nav: flip(nav && nav.getBoundingClientRect(), scale) };
+    const vw = canvas.clientWidth, vh = canvas.clientHeight;   // the canvas's own size: a classic scrollbar takes width from the window
+    return { W: Math.round(vw * scale), H: Math.round(vh * scale), scale, centre: [(a.left + a.width / 2) * scale, (vh - a.top - a.height / 2) * scale], anchor: [a.width * scale, a.height * scale], rect: host.getBoundingClientRect(),
+      text: flip(words && words.getBoundingClientRect(), scale, vh), nav: flip(nav && nav.getBoundingClientRect(), scale, vh) };
   };
   const draw = t => { if (!bg || lost || !visible) return; bg.draw(t, view()); drawn = true; };
-  const size = () => { if (!bg || lost) return; scale = canvasScale(innerWidth, innerHeight, devicePixelRatio); bg.size(scale); drawn = false; if (once) draw(fixedAge ?? 0.9); };
+  const size = () => { if (!bg || lost) return; scale = canvasScale(canvas.clientWidth, canvas.clientHeight, devicePixelRatio); bg.size(scale); drawn = false; if (once) draw(fixedAge ?? 0.9); };
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; set('off'); });
   canvas.addEventListener('webglcontextrestored', () => { bg = make(canvas, { lite, preserve }); if (!bg) return; lost = false; size(); set('live'); });
   new IntersectionObserver(([e]) => {
