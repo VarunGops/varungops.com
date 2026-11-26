@@ -1,8 +1,8 @@
 /* Clinical Experience's background: a field of fine graphite strokes that all follow a slow current, darker and
    lighter in patches like pencil shading, after Jaume Sánchez's Lines on a sphere (Codevember 2016, CC BY 4.0),
    opened out flat and written afresh. Two passes: the current's direction into a small texture (it changes slowly
-   and smoothly, so an eighth of the size is enough), then a line-integral pass that smears a fine grain along it
-   into strokes, the grain slowly travelling along the strokes. Drawn at half size (a third on a phone), at most
+   and smoothly, so a quarter of the size is enough), then a line-integral pass that smears a fine grain along it
+   into strokes, the grain slowly travelling along the strokes. Drawn at three-quarter size (half on a phone), at most
    thirty times a second. Noise: Ashima Arts' 3D simplex (Ian McEwan, Stefan Gustavson; MIT). */
 import { program } from '../gl.js';
 import { WORDS } from './layer.js';
@@ -39,37 +39,46 @@ const FIELD_FS = `#version 300 es
 precision highp float;
 uniform vec2 uRes; uniform float uTime, uFreq;              // uRes: the field's size; uFreq: per field pixel
 ${SIMPLEX}
+vec2 curl(vec2 p, float z, float e){ return vec2(snoise(vec3(p + vec2(0., e), z)) - snoise(vec3(p - vec2(0., e), z)), -(snoise(vec3(p + vec2(e, 0.), z)) - snoise(vec3(p - vec2(e, 0.), z))))/(2.*e); }
 out vec4 o;
 void main(){
-  vec2 p = gl_FragCoord.xy*uFreq; float z = uTime*.02, e = .02;
-  float n = snoise(vec3(p, z)), nx = snoise(vec3(p + vec2(e, 0.), z)), ny = snoise(vec3(p + vec2(0., e), z));
-  vec2 v = vec2(ny - n, -(nx - n)); v /= max(length(v), 1e-6);
+  vec2 p = gl_FragCoord.xy*uFreq; float z = uTime*.02;
+  p += .3*vec2(snoise(vec3(p/3., z + 11.)), snoise(vec3(p/3. + 5.2, z + 13.)));   // warped by the large sheets, so the swirls are not evenly spaced
+  vec2 v = curl(p, z, .02) + .7*curl(p/3. + 17.3, z*.7 + 4.1, .02);   // small swirls, and sheets three times larger, at 70%
   float shade = smoothstep(-.35, .65, snoise(vec3(p*.45, uTime*.01 + 7.)));
-  o = vec4(v*.5 + .5, shade, 1.);
+  o = vec4(clamp(v/8., -.5, .5) + .5, shade, 1.);               // kept unnormalised, so it blends smoothly between texels
 }`;
 
 // the strokes: a fine grain smeared along the current, the grain travelling slowly along each stroke
 const LIC_FS = `#version 300 es
 precision highp float;
-uniform sampler2D uField; uniform vec2 uRes; uniform float uTime, uGain, uGrain;
+uniform sampler2D uField; uniform vec2 uRes, uCentre; uniform float uTime, uGain, uGrain; uniform int uSteps;
 ${WORDS}
 out vec4 o;
 float hash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x*p.y); }
-vec2 dir(vec2 p){ return texture(uField, p/uRes).xy*2. - 1.; }
+vec2 field(vec2 p){                                    // the field sampled smoothly: no kinks at its texels' edges (a quintic step between them)
+  vec2 n = vec2(textureSize(uField, 0)), u = p/uRes*n + .5, i = floor(u), f = fract(u);
+  return texture(uField, (i + f*f*f*(f*(f*6. - 15.) + 10.) - .5)/n).xy - .5;
+}
+vec2 dir(vec2 p){ vec2 v = field(p); return v/max(length(v), 1e-4); }
 float grain(vec2 p, float s){                          // smooth (bilinear) grain, so no little squares show
-  vec2 q = p/uGrain, c = floor(q), f = smoothstep(0., 1., fract(q));
+  vec2 q = mat2(.8, .6, -.6, .8)*p/uGrain, c = floor(q), f = smoothstep(0., 1., fract(q));   // the grain's grid turned off the screen's axes, so it never shows as a mesh
   float h = mix(mix(hash(c), hash(c + vec2(1., 0.)), f.x), mix(hash(c + vec2(0., 1.)), hash(c + 1.), f.x), f.y);
   return h*(.6 + .4*sin(s*.5 - uTime*1.6 + h*6.283));
 }
 void main(){
   vec2 p0 = gl_FragCoord.xy, a = p0, b = p0; float s = 0., w = 0.;
+  float n = float(uSteps);
   for (int i = 0; i < 16; i++) {                      // along the current both ways from this pixel
-    float k = 1. - float(i)/16.;
+    if (i >= uSteps) break;
+    float k = 1. - float(i)/n;
     a += dir(a)*1.5; b -= dir(b)*1.5;
     s += (grain(a, float(i)) + grain(b, -float(i)))*k; w += 2.*k;
   }
   float v = pow(clamp((s/w - .30)*7. + .5, 0., 1.), 1.6), shade = texture(uField, p0/uRes).z;
-  float g = v*(.25 + .75*shade)*uGain*clearOfWords();
+  v *= mix(.4, 1., smoothstep(.02, .12, length(field(p0))));   // where the current stalls between two swirls, a soft dark valley, not a crack (and no dark pupil at a swirl's eye)
+  float round = smoothstep(.10, .34, length(p0 - uCentre)/min(uRes.x, uRes.y));   // a soft dark round the anatomy: the field sits behind it
+  float g = v*(.25 + .75*shade)*mix(.35, 1., round)*uGain*clearOfWords();
   vec3 c = vec3(.62, .62, .64)*g;                     // graphite
   o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
@@ -79,11 +88,11 @@ export function createFlow(canvas, { lite = false, preserve = false } = {}) {
   if (!gl) return null;
   const field = program(gl, VS, FIELD_FS), lic = program(gl, VS, LIC_FS);
   if (!field || !lic) return null;
-  const vao = gl.createVertexArray(), q = lite ? 1 / 3 : 1 / 2;          // drawn at this fraction of the canvas's own scale
+  const vao = gl.createVertexArray(), q = lite ? 1 / 2 : 3 / 4;          // drawn at this fraction of the canvas's own scale
   let tex = null, fb = null, fw = 0, fh = 0, last = -1;
   const makeField = () => {
     if (tex) { gl.deleteTexture(tex); gl.deleteFramebuffer(fb); }
-    fw = Math.max(2, Math.ceil(canvas.width / 8)); fh = Math.max(2, Math.ceil(canvas.height / 8));
+    fw = Math.max(2, Math.ceil(canvas.width / 4)); fh = Math.max(2, Math.ceil(canvas.height / 4));
     tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fw, fh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
@@ -103,12 +112,13 @@ export function createFlow(canvas, { lite = false, preserve = false } = {}) {
       const k = canvas.width / v.W, px = v.scale * q;                         // the layer's boxes are in full-scale canvas pixels
       gl.bindVertexArray(vao);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, fw, fh); gl.useProgram(field.p);
-      gl.uniform1f(field.u.uTime, t); gl.uniform1f(field.u.uFreq, 8 / (300 * px));   // a swirl about 300 CSS pixels across
+      gl.uniform1f(field.u.uTime, t); gl.uniform1f(field.u.uFreq, 4 / (300 * px));   // a swirl about 300 CSS pixels across
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       clear(); gl.useProgram(lic.p);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(lic.u.uField, 0);
       gl.uniform2f(lic.u.uRes, canvas.width, canvas.height); gl.uniform1f(lic.u.uTime, t);
-      gl.uniform1f(lic.u.uGain, lite ? 0.7 : 0.6); gl.uniform1f(lic.u.uGrain, Math.max(1.5, 2.6 * px));
+      gl.uniform1f(lic.u.uGain, lite ? 0.75 : 0.62); gl.uniform1f(lic.u.uGrain, Math.max(1, 1.2 * px)); gl.uniform1i(lic.u.uSteps, lite ? 10 : 16);
+      gl.uniform2f(lic.u.uCentre, v.centre[0] * k, v.centre[1] * k);
       gl.uniform4fv(lic.u.uText, v.text.map(x => x * k)); gl.uniform4fv(lic.u.uNav, v.nav.map(x => x * k));
       gl.drawArrays(gl.TRIANGLES, 0, 3); gl.bindVertexArray(null);
     },

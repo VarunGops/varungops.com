@@ -17,7 +17,7 @@ float box(vec4 r, float round, float soft){
   float d = length(max(q, 0.)) + min(max(q.x, q.y), 0.) - round;
   return smoothstep(0., soft, d);                       // fully dimmed right up to the box's edge, rising outside it
 }
-float clearOfWords(){ return mix(.15, 1., box(uText, 80., 170.))*box(uNav, 20., 70.); }`;
+float clearOfWords(){ return mix(.15, 1., box(uText, 60., 110.))*box(uNav, 20., 70.); }`;
 
 // the factory for each background, fetched only on its own page; each returns { size(scale), draw(t, view), clear() }
 // or null when its shaders cannot be built
@@ -50,7 +50,7 @@ export async function startBackground({ canvas, host, kind, reduce, fixedAge }) 
   const view = () => {
     const a = anchor.getBoundingClientRect();
     // W and H are full-scale canvas pixels, whatever size a background draws at
-    return { W: Math.round(innerWidth * scale), H: Math.round(innerHeight * scale), scale, centre: [(a.left + a.width / 2) * scale, (innerHeight - a.top - a.height / 2) * scale],
+    return { W: Math.round(innerWidth * scale), H: Math.round(innerHeight * scale), scale, centre: [(a.left + a.width / 2) * scale, (innerHeight - a.top - a.height / 2) * scale], anchor: [a.width * scale, a.height * scale],
       text: flip(words && words.getBoundingClientRect(), scale), nav: flip(nav && nav.getBoundingClientRect(), scale) };
   };
   const draw = t => { if (!bg || lost || !visible) return; bg.draw(t, view()); drawn = true; };
