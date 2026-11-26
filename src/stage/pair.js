@@ -4,7 +4,7 @@
    stream behind them). They turn slowly together (cortex.js). Full-screen canvas fitted to its box. */
 import { program } from './gl.js';
 import { yaw, PROJECT_GLSL, fitNeuron } from './cortex.js';
-import { signalAt, SPEED } from './signal.js';
+import { signalAt, SPEED, viewYaw, pairBounds, pairBox } from './signal.js';
 
 const VS = `#version 300 es
 in vec2 aCorner; in vec3 iA; in vec3 iB; in float iDA; in float iDB; in float iT; in vec3 iDir; in float iCell;
@@ -23,39 +23,41 @@ void main(){
 const FS = `#version 300 es
 precision highp float;
 in float vD; in vec3 vDir; in float vSide; in float vTip; in float vCell;
-uniform float uF1, uF2, uSettle, uSpeed;
+uniform float uF1, uF2, uSettle, uSpeed, uDSyn, uBottom, uTop, uLeft, uPxF;
 out vec4 o;
 void main(){
   float edge = 1. - smoothstep(.55, 1., abs(vSide));
   float f = vCell > .5 ? uF2 : uF1, x = vD - f;
-  float head = f < 0. ? 0. : exp(-x*x/900.)*2.6 + exp(-x*x/8100.)*.7;      // the signal: a bright core in a soft bloom
+  float head = f < 0. ? 0. : (exp(-x*x/900.)*2.6 + exp(-x*x/8100.)*.7)*(vCell > .5 ? .5 : 1.);   // the signal: a bright core in a soft bloom; gentler arriving
   float lit = f >= 0. && x < 0. ? exp(x/(uSpeed*.4)) : 0.;                  // where it has just passed
   float tip = vTip > .9 && f >= 0. ? exp(-x*x/324.)*2. : 0.;
-  float I = .55 + head + .5*lit*uSettle + tip;
+  float onPath = vCell > .5 ? mix(1., .45, smoothstep(120., 220., vD)) : mix(1., .35, smoothstep(uDSyn + 20., uDSyn + 80., vD));   // the way the signal goes reads first
+  float I = (.6 + head + .5*lit*uSettle + tip)*onPath*smoothstep(uBottom - 70.*uPxF, uBottom + 10.*uPxF, gl_FragCoord.y)*(1. - smoothstep(uTop - 60.*uPxF, uTop, gl_FragCoord.y))*smoothstep(uLeft, uLeft + 24.*uPxF, gl_FragCoord.x);   // the long axon fades out before the words below and the link home above
   vec3 base = vCell > .5 ? vec3(.35, .82, 1.) : vec3(1., .62, .26);         // the first cell amber, the second cyan
-  vec3 col = mix(base, normalize(vDir + .1), .22);                          // a little of the brain's direction colours
-  col = mix(col, vec3(1., .97, .92), clamp((head + tip)*.4, 0., 1.)*.55);
+  vec3 col = mix(base, normalize(vDir + .1), .1);                           // a touch of the brain's direction colours
+  col = mix(col, vCell > .5 ? vec3(.5, .9, 1.) : vec3(1., .97, .92), clamp((head + tip)*.4, 0., 1.)*.55);   // arriving, it stays the second cell's cyan
   vec3 c = col*I*edge;
   o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
 // the synapses and the two cell bodies, as soft discs
 const DOT_VS = `#version 300 es
-in vec4 aDot;                                   // x y z, kind: 0 synapse, 1 first cell body, 2 second cell body
+in vec4 aDot; in float aT;                      // x y z, kind (0 synapse, 1 first cell body, 2 second); when the signal arrives (s)
 ${PROJECT_GLSL}
-uniform float uPx, uFlash, uGlow1, uGlow2;
+uniform float uPx, uPh, uGlow1, uGlow2;
 out float vK; out float vKind;
 void main(){
   gl_Position = cortex(aDot.xyz);
-  float k = aDot.w < .5 ? uFlash : aDot.w < 1.5 ? uGlow1 : uGlow2;
-  gl_PointSize = (aDot.w < .5 ? 7. + 16.*uFlash : 15.)*uPx; vK = k; vKind = aDot.w;
+  float flash = min(1.5, exp(-pow((uPh - aT)/.12, 2.))*1.5);   // each synapse when the signal reaches it, never more than 1.5
+  float k = aDot.w < .5 ? flash : aDot.w < 1.5 ? uGlow1 : uGlow2;
+  gl_PointSize = (aDot.w < .5 ? 3. + 3.*flash : 13.)*uPx; vK = k; vKind = aDot.w;
 }`;
 const DOT_FS = `#version 300 es
 precision highp float;
 in float vK; in float vKind; out vec4 o;
 void main(){
   vec2 q = gl_PointCoord*2. - 1.; float r = dot(q, q);
-  vec3 col = vKind < .5 ? vec3(1.) : vKind < 1.5 ? vec3(1., .78, .5) : vec3(.6, .9, 1.);
-  float a = exp(-r*4.)*(vKind < .5 ? .15 + 1.6*vK : .5 + 1.3*vK);
+  vec3 col = vKind < .5 ? vec3(1.) : vKind < 1.5 ? vec3(1., .78, .5) : vec3(.4, .85, 1.);
+  float a = exp(-r*4.)*(vKind < .5 ? .2 + vK : min(.95, .45 + .6*vK));
   vec3 c = col*a; o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
 
@@ -72,10 +74,11 @@ export function createPair(canvas, data, { preserve = false, box = canvas } = {}
     const l = pr.a(name); if (l < 0) continue; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, 56, off * 4); gl.vertexAttribDivisor(l, 1);
   }
   const dvao = gl.createVertexArray(); gl.bindVertexArray(dvao);
-  const D = [...j.synapses.map(p => [...p, 0]), [...j.somas[0], 1], [...j.somas[1], 2]].flat();
+  const D = [...j.synapses.map((p, i) => [...p, 0, (j.dEach ? j.dEach[i] : j.dSyn) / SPEED]), [...j.somas[0], 1, 0], [...j.somas[1], 2, 0]].flat();
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(D), gl.STATIC_DRAW);
-  const dl = dots.a('aDot'); gl.enableVertexAttribArray(dl); gl.vertexAttribPointer(dl, 4, gl.FLOAT, false, 0, 0);
+  const dl = dots.a('aDot'), tl = dots.a('aT'); gl.enableVertexAttribArray(dl); gl.vertexAttribPointer(dl, 4, gl.FLOAT, false, 20, 0); gl.enableVertexAttribArray(tl); gl.vertexAttribPointer(tl, 1, gl.FLOAT, false, 20, 16);
   gl.bindVertexArray(null);
+  const yaw0 = viewYaw(j.somas), bounds = pairBounds(data);   // the view that best separates the two cells, fitted to the second cell
   let vw = 0, vh = 0, sc = 1;
   const clear = () => { gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); };
   const cam = (u, fit, a) => { gl.uniform3f(u.uFit, fit.s, fit.cx, fit.cy); gl.uniform1f(u.uYaw, a); gl.uniform2f(u.uRes, canvas.width, canvas.height); gl.uniform1f(u.uPx, sc); };
@@ -89,15 +92,17 @@ export function createPair(canvas, data, { preserve = false, box = canvas } = {}
     },
     clear,
     draw(t, fixed = {}) {
-      const time = fixed.age != null ? fixed.age : t, a = fixed.yaw != null ? fixed.yaw : yaw(time), s = signalAt(time, j.dSyn, maxD);
-      const fit = fitNeuron(box.getBoundingClientRect(), sc, data.lo, data.hi);
+      const time = fixed.age != null ? fixed.age : t, a = yaw0 + (fixed.yaw != null ? fixed.yaw : yaw(time)), s = signalAt(time, j.dSyn, maxD);
+      const fit = fitNeuron(pairBox(box.getBoundingClientRect(), vw < 700), sc, bounds.lo, bounds.hi);
       clear(); gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
       gl.useProgram(pr.p); gl.bindVertexArray(vao); cam(pr.u, fit, a);
-      gl.uniform2f(pr.u.uMax, maxD[0], maxD[1]); gl.uniform1f(pr.u.uF1, s.front1); gl.uniform1f(pr.u.uF2, s.front2); gl.uniform1f(pr.u.uSettle, s.settle); gl.uniform1f(pr.u.uSpeed, SPEED);
+      gl.uniform2f(pr.u.uMax, maxD[0], maxD[1]); gl.uniform1f(pr.u.uF1, s.front1); gl.uniform1f(pr.u.uF2, s.front2); gl.uniform1f(pr.u.uSettle, s.settle); gl.uniform1f(pr.u.uSpeed, SPEED); gl.uniform1f(pr.u.uDSyn, j.dSyn);
+      const br = box.getBoundingClientRect(); gl.uniform1f(pr.u.uBottom, canvas.height - br.bottom * sc); const link = document.querySelector('.side-top .home-link'), lb = link ? link.getBoundingClientRect().bottom : br.top;
+      gl.uniform1f(pr.u.uTop, canvas.height - (lb + 40) * sc); gl.uniform1f(pr.u.uLeft, 24 * sc);   // gone 40 px below the link home; clear of the edge rule gl.uniform1f(pr.u.uPxF, sc);
       gl.blendEquation(gl.MAX); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, data.nseg); gl.blendEquation(gl.FUNC_ADD);
       gl.useProgram(dots.p); gl.bindVertexArray(dvao); cam(dots.u, fit, a);
-      gl.uniform1f(dots.u.uFlash, s.flash); gl.uniform1f(dots.u.uGlow1, Math.exp(-s.ph * 3)); gl.uniform1f(dots.u.uGlow2, s.front2 < 0 ? 0 : Math.exp(-s.front2 / 120));
-      gl.drawArrays(gl.POINTS, 0, D.length / 4);
+      gl.uniform1f(dots.u.uPh, s.ph); gl.uniform1f(dots.u.uGlow1, Math.exp(-s.ph * 3)); gl.uniform1f(dots.u.uGlow2, s.front2 < 0 ? 0 : Math.exp(-s.front2 / 120));
+      gl.blendEquation(gl.MAX); gl.drawArrays(gl.POINTS, 0, D.length / 5); gl.blendEquation(gl.FUNC_ADD);
       gl.disable(gl.BLEND); gl.bindVertexArray(null);
     },
   };

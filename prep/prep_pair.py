@@ -82,10 +82,11 @@ def main(swc_dir, partner_json, out):
     # how far along the sender the synapses are: its distance at the node nearest each synapse
     from scipy.spatial import cKDTree
     Pt = np.vstack([f["P"] for f in sender]); Dt = np.concatenate(d_s)
-    d_syn = float(np.median(Dt[cKDTree(Pt).query(turn(np.array([s["pre"] for s in pj["synapses"]])))[1]]))
+    d_each = Dt[cKDTree(Pt).query(turn(np.array([s["pre"] for s in pj["synapses"]])))[1]]   # each synapse's distance along the sender
+    d_syn = float(np.median(d_each))
     meta = {"pre": SENDER, "post": str(pj["post"]), "rot": R.round(6).tolist(),
             "somas": [soma_s_t.round(2).tolist(), soma_p_t.round(2).tolist()], "synapses": syn_t.round(2).tolist(),
-            "dSyn": round(d_syn, 1), "maxDist": [round(float(max(d.max() for d in d_s)), 1), round(float(max(d.max() for d in d_p)), 1)],
+            "dSyn": round(d_syn, 1), "dEach": np.round(d_each, 1).tolist(), "maxDist": [round(float(max(d.max() for d in d_s)), 1), round(float(max(d.max() for d in d_p)), 1)],
             "source": "H01 (Shapson-Coe et al., Science 2024): proofread cell 1900905433, c3 cell 1332939895 and the c3 synapses between them, CC BY 4.0"}
     for step, name in ((2.0, "pair"), (4.0, "pair-lite")):
         write(out, name, [build(sender, d_s, step), build(partner, d_p, step)], meta)
