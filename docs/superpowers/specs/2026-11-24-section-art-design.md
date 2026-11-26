@@ -117,3 +117,58 @@ Dr Rajan, after the fibre fountains: "The eyes look great but, the lasers emergi
 **Home page.** A faint tangle of fine silver lines traced through 3D curl noise, as in Curl Scribbles, fixed behind the whole home page and turning slowly, with a slight chromatic split and a vignette; quiet enough that the brain, the line, the heart and the words stay first. Lines are traced once on load (seeded, so the same tangle every visit), about 500 lines on a desktop and 250 on a phone; drawn at no more than 30 frames a second; one still frame for reduced motion; absent without WebGL 2. My call: home page only, as he said; the section pages keep their own art.
 
 He added (25 Nov): "after we move below the shockwave of the brain, it should fade in with the scribble background that moves as you scroll below and when you click to the side pages it should fade out again." So the scribbles are invisible over the brain and its shockwave, fade in as the page scrolls below the shockwave, and turn and drift with the scroll; on the way to a section page they fade out rather than slide with the page, and they fade back in on the way home.
+
+## Revision, 26 November 2026: a background effect for every section page
+
+Dr Rajan approved the Now-page bonfire ("Looks good"). He then asked for a moving background behind each section page's anatomy, in the spirit of the bonfire and the home-page scribbles. He picked these from live demos, all by Jaume Sánchez (Codevember 2016 and 2017, CC BY 4.0) except Collaborate's (Pavel Dobryakov, MIT). Each will be written afresh in raw WebGL2, in the page's own palette, and credited:
+
+| Page | Background | Source demo |
+|---|---|---|
+| About (heart) | Pulse rings expanding with each heartbeat (1A) | Codevember 2016 #19, DOF Tunnel |
+| Clinical Experience (hands) | Graphite flow lines filling the screen (2A) | Codevember 2016 #20, Lines on a sphere |
+| Research (neuron) | A deep field of distant cells, soft focus (3B) | Codevember 2016 #18, Starfield |
+| Teaching (synapse) | A particle stream flowing from one side to the other (4B) | Codevember 2017, Plasma waves |
+| Writing (arcuate fasciculus) | Flowing line ribbons (5C) | Codevember 2016 #3, Strange Attractors |
+| Life (lungs) | Glowing lines drawn out by a moving form, with long trails (his pick from the second round) | Codevember 2016 #25, Lines |
+| Collaborate (corpus callosum) | Fluid pouring from both sides in complementary colour pairs that change with each push, swirling together at the middle (his pick from the third round, "B: Two colours", refined to many alternating complementary pairs) | Pavel Dobryakov, WebGL Fluid Simulation (MIT) |
+
+The Now page keeps the bonfire as its background. The home page keeps the scribbles.
+
+Rejected along the way: for Collaborate, his verdict on the first two rounds was "all of these were bad, find more intuitively suited ones". That covered the Lorenz attractor, alien strands, bands, metaballs and AO spheres. Codevember 2021 ("ask first") and Genuary 2022 ("ask and we'll see") were left out on licence grounds.
+
+### Why
+
+The section pages should each feel as alive as Now does with the bonfire. A page should not be one object on a flat dark ground. Each background carries the page's idea one step further than the anatomy alone.
+
+### How each background behaves
+
+- **About: pulse rings.** Thin red rings leave from behind the heart on every beat, read from the shared heartbeat clock (`clock.js`, 0.96 s), and widen until they leave the screen. The fourth beat (the volley) sends a brighter ring. The rings are slightly out of focus at their edges, as in the demo.
+- **Clinical Experience: graphite flow lines.** A full-screen field of fine pencil-grey strokes following a slow curl-noise current, like the demo's lines on a sphere, opened out flat. They darken and lighten in patches, like shading. The red strings and rays run over it.
+- **Research: deep field of cells.** Thousands of tiny points, the neuron's neighbours, at many depths and in soft focus by depth. They drift slowly as the neuron turns, so the neuron sits inside the cortex rather than in a void. Colours come from the neuron's own palette, faint.
+- **Teaching: particle stream.** A stream of particles carried by curl noise from the first cell's side of the screen to the second's. It brightens and quickens for a moment as the signal crosses the real synapse.
+- **Writing: flowing line ribbons.** Long, thin ribbons of many parallel lines sweep slowly behind the brain outline, in the tract colours. Each ribbon follows a smooth path and loops back on itself, as in the demo.
+- **Life: glowing lines.** Fine glowing lines are drawn out from the lungs' outline and trail behind it. They stream outwards as the lungs breathe out and settle as they breathe in, on the lungs' own breathing cycle (about 12 a minute).
+- **Collaborate: complementary colours from two sides.** A real fluid simulation across the screen. Colour flows in from the left and from the right, and the two sides are always a complementary pair: when the left pours orange, the right pours blue. The pair changes with each push, alternating round the colour wheel (red and cyan, orange and blue, yellow and violet, green and magenta, and so on). The colours meet and swirl together at the middle, so the screen keeps several pairs mixing at once, the newest brightest. Each time light crosses the midline in the tract, a new push follows it. This was Dr Rajan's refinement of his pick, on 26 Nov: "multiple complementary colours alternating from two sides, instead of just two colours".
+
+### Shared rules
+
+- Each background is its own full-screen canvas behind the page and behind the anatomy, like the bonfire. It is written afresh in raw WebGL 2, with no libraries, and credited in that page's credits with its source and licence.
+- The anatomy stays real and is never altered to suit a background.
+- Clear of the words, as on Now: each background dims where the text and the way home sit.
+- A phone gets a lighter version, within the existing per-page budget (3 MB desktop, 2 MB phone, `check-dist.mjs`).
+- Reduced motion: a single still frame. Off screen: paused.
+- Each background fades in after its anatomy has appeared, and it fades out, not slides, on the way to another page.
+
+### Approaches considered
+
+1. **A separate canvas per background (chosen).** It is independent of the finished heart, eyes and hands code. It can load after the anatomy, so the anatomy appears first. It can be switched off on a weak device without losing the anatomy. Cost: a second WebGL context on each page, and anything shared, such as the heartbeat or the breath, is read from the shared clock rather than from the same frame.
+2. **Draw the background into the anatomy's canvas.** One context, and anatomy and background can share depth. But it reopens the approved heart, eyes and hands code, and a failure in one would take down both.
+
+### Calls made after the builder check (26 Nov)
+
+- **Order (my call, from his "let's build it all").** Each background is built together with its page's anatomy, and no background goes live before its anatomy. About and Clinical Experience come first, since their anatomy exists. Then Life (lungs), Research (neuron), Teaching (synapse), Writing and Collaborate. Each pair is one deliverable that is shown to him before the next starts. A small shared interface lets an anatomy piece publish its moments (beat, breath, signal crossing, midline crossing) for its background to read. The heart already does this through `clock.js`.
+- **Collaborate's pushes (my call).** The corpus callosum's light crosses in pulses on the shared heartbeat clock, as the brain's impulses do on the home page: a soft crossing every beat and a full one every fourth beat (the volley). The fluid gets one push per volley, so a new complementary pair arrives about every 3.8 s, alternating which side leads.
+- **Life's lines** come from the real lung model's outline. Nothing there is invented.
+- **Research's distant cells are real (his decision, 26 Nov).** The deep-field points are the neuron's real neighbours: the cell positions H01 records in the same piece of cortex, from a download he runs himself. They are not random points. They take a share of the page's size budget.
+
+Approved by Dr Rajan on 26 Nov 2026 ("Approved, start building").
