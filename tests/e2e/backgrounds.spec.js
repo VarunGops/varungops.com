@@ -110,3 +110,10 @@ test.describe('Clinical Experience: graphite flow lines', () => {
     await expect(page.getByRole('contentinfo')).toContainText('Flow lines adapted from Jaume Sánchez’s Lines on a sphere (Codevember 2016), CC BY 4.0.');
   });
 });
+
+test('with reduced motion and no fixed moment, the flow lines survive scrolling away and back', async ({ page }) => {
+  await page.goto('/clinical-experience/'); await live(page);
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await page.waitForTimeout(800);
+  await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(800);
+  expect((await sample(page, 'Math.abs(r - g) < 12 && Math.abs(g - b) < 12 && r > 35')).n).toBeGreaterThan(300);
+});

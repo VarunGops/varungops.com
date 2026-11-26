@@ -6,6 +6,9 @@
 export const BG = { heart: 'rings', hands: 'flow' };
 
 // device pixels per CSS pixel: at most 1.5, and never more than seven million pixels in all
+// what a background centres on: the heart itself on About; on a wide piece its box (its own canvas covers the screen)
+export const anchorOf = host => host.querySelector('#heart') || host;
+
 export const canvasScale = (cssW, cssH, dpr) => Math.min(dpr || 1, 1.5, Math.sqrt(7e6 / Math.max(1, cssW * cssH)));
 
 // GLSL shared by the backgrounds: 1 well clear of the words and the link home, a faint haze under the words, a soft
@@ -42,11 +45,11 @@ export async function startBackground({ canvas, host, kind, reduce, fixedAge }) 
     });
     if (!ok) { set('off'); return; }
   }
-  const lite = innerWidth < 700, preserve = fixedAge != null, once = reduce || preserve;
+  const lite = innerWidth < 700, once = reduce || fixedAge != null, preserve = once;   // a single still frame is kept, and redrawn as the words move
   let make, bg = null, lost = false, visible = true, scale = 1, last = -1, drawn = false;
   try { make = await load(); bg = make(canvas, { lite, preserve }); } catch (err) { console.warn('the background did not load:', err.message); }
   if (!bg) { set('off'); return; }
-  const anchor = host.querySelector('canvas:not(#bg)') || host, words = document.querySelector('.side-body'), nav = document.querySelector('.side-top .home-link');
+  const anchor = anchorOf(host), words = document.querySelector('.side-body'), nav = document.querySelector('.side-top .home-link');
   const view = () => {
     const a = anchor.getBoundingClientRect();
     // W and H are full-scale canvas pixels, whatever size a background draws at

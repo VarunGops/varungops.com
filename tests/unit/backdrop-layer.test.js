@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { canvasScale, BG } from '../../src/stage/bg/layer.js';
+import { canvasScale, BG, anchorOf } from '../../src/stage/bg/layer.js';
 import { ringsAt } from '../../src/stage/bg/rings.js';
 import { T } from '../../src/stage/clock.js';
 
@@ -20,4 +20,10 @@ test('older rings are fainter and there are never more than count', () => {
   const r = ringsAt(20 * T + 0.3, { count: 6, speed: 300 });
   expect(r.length).toBeLessThanOrEqual(6);
   for (let i = 1; i < r.length; i++) { expect(r[i].radius).toBeGreaterThan(r[i - 1].radius); expect(r[i].alpha).toBeLessThan(r[i - 1].alpha); }
+});
+
+test('the rings centre on the heart; a wide piece centres on its own box, not its full-screen canvas', () => {
+  const heart = { id: 'heart' }, wide = { querySelector: s => (s === '#heart' ? null : { id: 'art' }) }, box = { querySelector: s => (s === '#heart' ? heart : null) };
+  expect(anchorOf(box)).toBe(heart);
+  expect(anchorOf(wide)).toBe(wide);
 });
