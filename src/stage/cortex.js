@@ -21,8 +21,10 @@ vec4 cortex(vec3 p){
   return vec4(q.x/uRes.x*2. - 1., 1. - q.y/uRes.y*2., -zr/(${CAMERA}.*2.), 1.);
 }`;
 
-// the whole cell (bounds lo, hi) fitted into 90% of its box, centred; box in window pixels, scale device px per CSS px
+// the whole cell (bounds lo, hi): its height 88% of the box's, its top 48 CSS px below the box's top (clear of the link
+// home), centred across; box in window pixels, scale device px per CSS px
+export const TOP = 48;
 export function fitNeuron(box, scale, lo, hi) {
-  const s = Math.min(0.9 * box.height * scale / (hi[1] - lo[1]), 0.9 * box.width * scale / (hi[0] - lo[0]));
-  return { s, cx: (box.left + box.width / 2) * scale - (lo[0] + hi[0]) / 2 * s, cy: (box.top + box.height / 2) * scale + (lo[1] + hi[1]) / 2 * s };
+  const s = Math.min(0.88 * box.height * scale / (hi[1] - lo[1]), 1.1 * box.width * scale / (hi[0] - lo[0]));
+  return { s, cx: (box.left + box.width / 2) * scale - (lo[0] + hi[0]) / 2 * s, cy: (box.top + TOP) * scale + hi[1] * s };
 }

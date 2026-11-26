@@ -10,27 +10,27 @@ const VS = `#version 300 es
 in vec4 aCell;                                   // x y z (um about the soma), size (voxels at 4 um)
 ${PROJECT_GLSL}
 uniform float uPx;
-out float vBlur; out float vDepth; out float vEdge;
+out float vA; out vec3 vCol;
+float hash(float n){ return fract(sin(n*12.9898)*43758.5453); }
 void main(){
   vec4 c = cortex(aCell.xyz);
-  vEdge = 1. - smoothstep(350., 820., length(aCell.xy - vec2(0., 250.)));   // the field fades out before the tissue's edges
-  float zr = -c.z*${2600 * 2}.;                  // back to um towards the viewer
-  float blur = clamp(abs(zr)/140., 0., 1.);      // the soma's depth in focus
-  float r = (1.2 + sqrt(aCell.w)*.7)*uFit.x*1.8; // a cell body some 10 um across, in device px
-  gl_Position = c; gl_PointSize = clamp(r*(1. + 3.*blur), 1.5*uPx, 26.*uPx);
-  vBlur = blur; vDepth = clamp(zr/200., -1., 1.);
+  float zr = -c.z*${2600 * 2}., blur = clamp(abs(zr)/120., 0., 1.);   // the soma's depth in focus
+  float h = hash(float(gl_VertexID)), level = h > .99 ? 17. : h > .9 ? 1.3 : .35;   // a starfield's few bright, some middling, most faint
+  float size = mix(1.2, 4.5, blur)*uPx*(h > .99 ? 2.6 : 1.);           // the bright ones with a faint halo
+  float edge = 1. - smoothstep(300., 1000., length(aCell.xy - vec2(0., 250.))); edge *= edge;   // thinning out gradually long before the tissue's edges
+  gl_Position = c; gl_PointSize = size;
+  vA = level*edge*pow(1.2*uPx/size, 2.);        // out of focus, a point spreads its light: it grows fainter, not foggier
+  vCol = mix(vec3(.75, .82, 1.), vec3(1., .9, .8), hash(float(gl_VertexID) + 7.1));
 }`;
 const FS = `#version 300 es
 precision highp float;
-in float vBlur; in float vDepth; in float vEdge;
+in float vA; in vec3 vCol;
 uniform float uGain;
 ${WORDS}
 out vec4 o;
 void main(){
-  vec2 q = gl_PointCoord*2. - 1.; float d = dot(q, q);
-  float a = exp(-d*mix(9., 2.2, vBlur))*mix(1., .28, vBlur);           // sharp in focus; soft and faint out of it
-  vec3 col = mix(vec3(.72, .78, 1.), vec3(1., .86, .78), .5 + .25*vDepth);   // a faint, cool-white light, a touch warmer nearer
-  vec3 c = col*a*vEdge*uGain*clearOfWords();
+  vec2 q = gl_PointCoord*2. - 1.; float r2 = dot(q, q), k = exp(-r2*3.5) + exp(-r2*14.)*.8;
+  vec3 c = vCol*k*vA*uGain*clearOfWords();
   o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
 
@@ -54,7 +54,7 @@ export function createField(canvas, { lite = false, preserve = false } = {}, dat
       clear(); gl.useProgram(pr.p); gl.bindVertexArray(vao);
       const u = pr.u;
       gl.uniform3f(u.uFit, fit.s, fit.cx, fit.cy); gl.uniform1f(u.uYaw, a); gl.uniform2f(u.uRes, canvas.width, canvas.height); gl.uniform1f(u.uPx, v.scale);
-      gl.uniform1f(u.uGain, lite ? 0.16 : 0.12); gl.uniform4fv(u.uText, v.text); gl.uniform4fv(u.uNav, v.nav);
+      gl.uniform1f(u.uGain, lite ? 1.7 : 1.95); gl.uniform4fv(u.uText, v.text); gl.uniform4fv(u.uNav, v.nav);
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
       gl.drawArrays(gl.POINTS, 0, data.ncell);
       gl.disable(gl.BLEND); gl.bindVertexArray(null);

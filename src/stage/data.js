@@ -70,17 +70,19 @@ export function decodeLungs(json, buf) {
 }
 
 // neuron.bin: per segment a(3) b(3) as int16 tenths of a micrometre about the soma, the distance along the cell at a and
-// at b as uint16 tenths, radius uint8 (x 0.05 um), type uint8; then per cell x y z int16 tenths, size uint8, a spare byte
+// at b as uint16 tenths, radius uint8 (x 0.05 um), tip flag uint8, the branch's smoothed direction int8 x 3, a spare
+// byte; then per cell x y z int16 tenths, size uint8, a spare byte
 export function decodeNeuron(json, buf) {
   if (buf.byteLength < NEED.neuron(json)) throw new RangeError('neuron.bin is truncated');
-  const n = json.segs, m = json.cells, dv = new DataView(buf), seg = new Float32Array(n * 10), cells = new Float32Array(m * 4);
+  const n = json.segs, m = json.cells, dv = new DataView(buf), seg = new Float32Array(n * 13), cells = new Float32Array(m * 4);
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < n; i++) {
-    const o = i * 18, w = i * 10;
+    const o = i * 22, w = i * 13;
     for (let k = 0; k < 6; k++) { const v = dv.getInt16(o + k * 2, true) / 10; seg[w + k] = v; const a = k % 3; if (v < lo[a]) lo[a] = v; if (v > hi[a]) hi[a] = v; }
     seg[w + 6] = dv.getUint16(o + 12, true) / 10; seg[w + 7] = dv.getUint16(o + 14, true) / 10; seg[w + 8] = dv.getUint8(o + 16) * 0.05; seg[w + 9] = dv.getUint8(o + 17);
+    for (let k = 0; k < 3; k++) seg[w + 10 + k] = dv.getInt8(o + 18 + k) / 127;
   }
-  for (let i = 0; i < m; i++) { const o = n * 18 + i * 8; for (let k = 0; k < 3; k++) cells[i * 4 + k] = dv.getInt16(o + k * 2, true) / 10; cells[i * 4 + 3] = dv.getUint8(o + 6); }
+  for (let i = 0; i < m; i++) { const o = n * 22 + i * 8; for (let k = 0; k < 3; k++) cells[i * 4 + k] = dv.getInt16(o + k * 2, true) / 10; cells[i * 4 + 3] = dv.getUint8(o + 6); }
   return { nseg: n, seg, ncell: m, cells, lo, hi, maxDist: json.maxDist };
 }
 
@@ -114,7 +116,7 @@ export const NEED = {
   tracts: j => j.streamlines * j.points * 6 + 2 * j.streamlines,
   heart: j => Math.ceil(j.verts * 10 / 4) * 4 + j.faces * 12,
   lungs: j => j.verts * 12 + j.faces * 12,
-  neuron: j => j.segs * 18 + j.cells * 8,
+  neuron: j => j.segs * 22 + j.cells * 8,
 };
 const kindOf = name => name.replace('-lite', '');
 

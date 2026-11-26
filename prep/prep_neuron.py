@@ -98,26 +98,38 @@ def near_cells(C, soma, half, skip):
     return np.all(np.abs(d) <= half, axis=1) & (np.linalg.norm(d, axis=1) > skip)
 
 
+def smooth_dir(f, k, span=16.0):
+    """The branch's direction at node k, over about `span` um of the cell above it, so tracing jitter does not show."""
+    u, acc = k, 0.0
+    while f["parent"][u] >= 0 and acc < span:
+        p = f["parent"][u]; acc += float(np.linalg.norm(f["P"][u] - f["P"][p])); u = p
+    v = f["P"][k] - f["P"][u]; n = float(np.linalg.norm(v))
+    return v / n if n > 1e-9 else np.array([0.0, 1.0, 0.0])
+
+
 def build(frags, dist, step):
-    A, B, DA, DB, R, T = [], [], [], [], [], []
+    A, B, DA, DB, R, T, D = [], [], [], [], [], [], []
     for f, d in zip(frags, dist):
+        kids = collections.Counter(int(p) for p in f["parent"] if p >= 0)
         for c, p in resample(f, step):
-            A.append(f["P"][c]); B.append(f["P"][p]); DA.append(d[c]); DB.append(d[p]); R.append(f["r"][c]); T.append(f["type"][c])
-    return np.array(A), np.array(B), np.array(DA), np.array(DB), np.array(R), np.array(T)
+            A.append(f["P"][c]); B.append(f["P"][p]); DA.append(d[c]); DB.append(d[p]); R.append(f["r"][c])
+            T.append(1 if kids[c] == 0 else 0)          # 1: this segment ends at a tip of the cell
+            D.append(smooth_dir(f, c))
+    return np.array(A), np.array(B), np.array(DA), np.array(DB), np.array(R), np.array(T), np.array(D)
 
 
-def write(out, name, A, B, DA, DB, R, T, C, S, meta):
+def write(out, name, A, B, DA, DB, R, T, D, C, S, meta):
     q = lambda x: np.clip(np.round(x * 10), -32767, 32767).astype(np.int16)
     with open(os.path.join(out, name + ".bin"), "wb") as fh:
-        rec = np.zeros(len(A), dtype=[("a", "<i2", 3), ("b", "<i2", 3), ("da", "<u2"), ("db", "<u2"), ("r", "u1"), ("t", "u1")])
+        rec = np.zeros(len(A), dtype=[("a", "<i2", 3), ("b", "<i2", 3), ("da", "<u2"), ("db", "<u2"), ("r", "u1"), ("t", "u1"), ("d", "i1", 3), ("pad", "u1")])
         rec["a"] = q(A); rec["b"] = q(B); rec["da"] = np.clip(np.round(DA * 10), 0, 65535); rec["db"] = np.clip(np.round(DB * 10), 0, 65535)
-        rec["r"] = np.clip(np.round(R / 0.05), 0, 255); rec["t"] = np.clip(T, 0, 255)
+        rec["r"] = np.clip(np.round(R / 0.05), 0, 255); rec["t"] = np.clip(T, 0, 255); rec["d"] = np.clip(np.round(D * 127), -127, 127)
         fh.write(rec.tobytes())
         cel = np.zeros(len(C), dtype=[("p", "<i2", 3), ("s", "u1"), ("pad", "u1")])
         cel["p"] = q(C); cel["s"] = np.clip(S, 0, 255)
         fh.write(cel.tobytes())
     json.dump({"segs": int(len(A)), "cells": int(len(C)), "units": "um", **meta}, open(os.path.join(out, name + ".json"), "w"))
-    print(f"{name}: {len(A)} segments, {len(C)} cells, {(len(A) * 18 + len(C) * 8) / 1048576:.2f} MB")
+    print(f"{name}: {len(A)} segments, {len(C)} cells, {(len(A) * 22 + len(C) * 8) / 1048576:.2f} MB")
 
 
 def main(swc_dir, cells_json, out):
@@ -135,8 +147,8 @@ def main(swc_dir, cells_json, out):
     meta = {"cell": CELL, "maxDist": round(maxd, 1), "rot": R.round(6).tolist(), "field": FIELD,
             "source": "H01 (Shapson-Coe et al., Science 2024), proofread cell 3955003482 and cell bodies, CC BY 4.0"}
     for step, name, every in ((2.0, "neuron", 1), (4.0, "neuron-lite", 2)):
-        A, B, DA, DB, Rr, Tt = build(frags, dist, step)
-        write(out, name, A, B, DA, DB, Rr, Tt, C[::every], S[::every], meta)
+        A, B, DA, DB, Rr, Tt, Dd = build(frags, dist, step)
+        write(out, name, A, B, DA, DB, Rr, Tt, Dd, C[::every], S[::every], meta)
 
 
 if __name__ == "__main__":

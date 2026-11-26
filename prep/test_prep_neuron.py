@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from prep_neuron import upright, path_dist, resample, near_cells  # noqa: E402
+from prep_neuron import upright, path_dist, resample, near_cells, smooth_dir  # noqa: E402
 
 
 def frag(points, parents):
@@ -46,6 +46,13 @@ class NearCells(unittest.TestCase):
         C = np.array([[5, 0, 0], [100, 0, 0], [5000, 0, 0], [0, 50, 0]], float)
         keep = near_cells(C, np.zeros(3), [1000, 1000, 200], 15)
         self.assertEqual(keep.tolist(), [False, True, False, True])
+
+
+class SmoothDir(unittest.TestCase):
+    def test_a_jittery_branch_keeps_its_overall_direction(self):
+        pts = [[(0.3 if i % 2 else -0.3), i * 1.0, 0] for i in range(30)]          # up the y axis, zigzagging in x
+        d = smooth_dir(frag(pts, [-1] + list(range(29))), 29)
+        self.assertGreater(d[1], 0.98)
 
 
 if __name__ == "__main__":

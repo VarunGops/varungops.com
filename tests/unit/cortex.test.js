@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { yaw, project, fitNeuron, CAMERA } from '../../src/stage/cortex.js';
+import { yaw, project, fitNeuron, CAMERA, TOP } from '../../src/stage/cortex.js';
 
 describe('the turn shared by the neuron and its field', () => {
   it('sways slowly within ±0.35 rad', () => {
@@ -17,9 +17,10 @@ describe('the turn shared by the neuron and its field', () => {
     const a = project([100, 0, 0], Math.PI / 2, { s: 1, cx: 0, cy: 0 });
     expect(Math.abs(a[0])).toBeLessThan(1e-9);
   });
-  it("fits the cell's height into 90% of its box, the soma placed so the whole cell is centred", () => {
+  it("fits the cell's height to 88% of its box, its top clear of the link home", () => {
     const f = fitNeuron({ left: 0, top: 0, width: 1000, height: 600 }, 1, [-300, -300, -100], [300, 900, 100]);
-    expect(f.s * 1200).toBeCloseTo(540, 5);
-    expect(f.cy - 300 * f.s).toBeCloseTo(300 - 0, 0);                  // the cell's middle (y 300) at the box's middle
+    expect(f.s * 1200).toBeCloseTo(528, 5);
+    expect(f.cy - 900 * f.s).toBeCloseTo(TOP, 5);                   // the apical tip, TOP px below the box's top
+    expect(f.cx).toBeCloseTo(500, 5);                  // the cell's middle (y 300) at the box's middle
   });
 });
