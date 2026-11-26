@@ -117,3 +117,35 @@ test('with reduced motion and no fixed moment, the flow lines survive scrolling 
   await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(800);
   expect((await sample(page, 'Math.abs(r - g) < 12 && Math.abs(g - b) < 12 && r > 35')).n).toBeGreaterThan(300);
 });
+
+test.describe('Life: glowing lines', () => {
+  const red = 'r > 25 && r > 2.5 * g && r > 2.5 * b';
+  test('draws glowing red lines', async ({ page }) => {
+    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    expect((await sample(page, red)).n).toBeGreaterThan(40);
+  });
+  test('the lines start at the lungs: most of the glow is in or near their box', async ({ page }) => {
+    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    const r = await page.evaluate(() => { const b = document.querySelector('[data-art]').getBoundingClientRect(); return { x: b.left - b.width * 0.1, y: b.top - b.height * 0.1, w: b.width * 1.2, h: b.height * 1.2 }; });
+    const near = await sample(page, 'false', r), all = await sample(page);
+    expect(near.mean * r.w * r.h).toBeGreaterThan(0.6 * all.mean * (await page.evaluate(() => innerWidth * innerHeight)));
+  });
+  test('the words sit on a dimmed background', async ({ page }) => {
+    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    const [under, bare] = await dimmedUnderWords(page);
+    expect(bare).toBeGreaterThan(0.2); expect(under).toBeLessThan(bare * 0.45);
+  });
+  test('with reduced motion the outline still glows', async ({ page }) => {
+    await page.goto('/life/'); await live(page);
+    expect((await sample(page, red)).n).toBeGreaterThan(40);
+  });
+  test('a resize keeps the lines', async ({ page }) => {
+    await page.goto('/life/?hage=2&hyaw=0'); await live(page);
+    await page.setViewportSize({ width: 600, height: 900 }); await page.waitForTimeout(800);
+    expect((await sample(page, red)).n).toBeGreaterThan(40);
+  });
+  test('the credit names the source', async ({ page }) => {
+    await page.goto('/life/');
+    await expect(page.getByRole('contentinfo')).toContainText('The glowing lines are adapted from Jaume Sánchez’s Lines (Codevember 2016), CC BY 4.0.');
+  });
+});

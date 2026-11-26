@@ -3,7 +3,7 @@
    quietly (data-bg="off") without touching the anatomy if it cannot run. */
 
 // which page has which background
-export const BG = { heart: 'rings', hands: 'flow' };
+export const BG = { heart: 'rings', hands: 'flow', lungs: 'glow' };
 
 // device pixels per CSS pixel: at most 1.5, and never more than seven million pixels in all
 // what a background centres on: the heart itself on About; on a wide piece its box (its own canvas covers the screen)
@@ -27,6 +27,7 @@ float clearOfWords(){ return mix(.15, 1., box(uText, 60., 110.))*box(uNav, 20., 
 const MAKE = {
   rings: () => import('./rings.js').then(m => m.createRings),
   flow: () => import('./flow.js').then(m => m.createFlow),
+  glow: () => Promise.all([import('./glow.js'), fetch('/data/lungs.json').then(r => r.json())]).then(([m, json]) => (c, o) => m.createGlow(c, o, json)),   // the lungs' outline comes with their data
 };
 
 const set = s => { document.documentElement.dataset.bg = s; };
@@ -53,7 +54,7 @@ export async function startBackground({ canvas, host, kind, reduce, fixedAge }) 
   const view = () => {
     const a = anchor.getBoundingClientRect();
     // W and H are full-scale canvas pixels, whatever size a background draws at
-    return { W: Math.round(innerWidth * scale), H: Math.round(innerHeight * scale), scale, centre: [(a.left + a.width / 2) * scale, (innerHeight - a.top - a.height / 2) * scale], anchor: [a.width * scale, a.height * scale],
+    return { W: Math.round(innerWidth * scale), H: Math.round(innerHeight * scale), scale, centre: [(a.left + a.width / 2) * scale, (innerHeight - a.top - a.height / 2) * scale], anchor: [a.width * scale, a.height * scale], rect: host.getBoundingClientRect(),
       text: flip(words && words.getBoundingClientRect(), scale), nav: flip(nav && nav.getBoundingClientRect(), scale) };
   };
   const draw = t => { if (!bg || lost || !visible) return; bg.draw(t, view()); drawn = true; };
