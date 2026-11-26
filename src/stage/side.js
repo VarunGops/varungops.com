@@ -51,6 +51,6 @@ async function start() {
   if (reduce) draw(0); else requestAnimationFrame(frame);
   // the background behind it, on its own canvas, once the anatomy is drawing (src/stage/bg/layer.js)
   const bgCanvas = document.getElementById('bg');
-  if (bgCanvas) import('./bg/layer.js').then(m => m.startBackground({ canvas: bgCanvas, host, kind, reduce, fixedAge: AGE })).catch(err => { html.dataset.bg = 'off'; console.warn('the background did not start:', err.message); });
+  if (bgCanvas) import('./bg/layer.js').then(m => m.startBackground({ canvas: bgCanvas, host, kind, reduce, fixedAge: AGE, fixedYaw: fixed.yaw })).catch(err => { html.dataset.bg = 'off'; console.warn('the background did not start:', err.message); });
 }
 start();

@@ -185,3 +185,23 @@ test.describe('Life: the glow stays on the lungs\' edge', () => {
     expect(ms).toBeLessThan(150);
   });
 });
+
+test.describe('Research: the deep field of real cells', () => {
+  test('draws soft points round the neuron', async ({ page }) => {
+    await page.goto('/research/?hage=2&hyaw=0.1'); await live(page);
+    expect((await sample(page, 'r + g + b > 60')).n).toBeGreaterThan(60);
+  });
+  test('the words sit on a dimmed background', async ({ page }) => {
+    await page.goto('/research/?hage=2&hyaw=0.1'); await live(page);
+    const [under, bare] = await dimmedUnderWords(page);
+    expect(bare).toBeGreaterThan(0.02); expect(under).toBeLessThan(bare * 0.45);   // the field is faint and fades out before the words: little to dim, but measurable
+  });
+  test('with reduced motion the field still shows', async ({ page }) => {
+    await page.goto('/research/'); await live(page);
+    expect((await sample(page, 'r + g + b > 60')).n).toBeGreaterThan(60);
+  });
+  test('the credit names the source', async ({ page }) => {
+    await page.goto('/research/');
+    await expect(page.getByRole('contentinfo')).toContainText('The deep field follows Jaume Sánchez’s Starfield (Codevember 2016), CC BY 4.0.');
+  });
+});
