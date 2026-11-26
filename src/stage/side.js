@@ -1,7 +1,7 @@
-/* A section page's anatomy: the heart on About, the eyes on Now, the hands on Clinical Experience. Each runs on its
+/* A section page's anatomy: the heart on About, the eyes on Now, the hands on Clinical Experience, the lungs on Life. Each runs on its
    own clock, with no burst, and only while it is on screen. The same stage states as the home page: 'live' once a
    frame is drawn, 'still' or 'failed' keep the still image up. */
-import { loadPart, decodeEyes, decodeHands } from './data.js';
+import { loadPart, decodeEyes, decodeHands, decodeLungs } from './data.js';
 
 const html = document.documentElement, set = s => { html.dataset.stage = s; };
 const host = document.querySelector('[data-art]'), kind = host && host.dataset.art;
@@ -14,6 +14,7 @@ const lite = innerWidth < 700;
 const ART = {
   heart: { part: 'heart', code: () => import('./heart.js'), make: (m, c, d, o) => m.createHeart(c, d, o), draw: (r, t, f) => r.draw(t, 0, f) },
   eyes: { part: lite ? 'eyes-lite' : 'eyes', code: () => import('./eyes.js'), make: (m, c, d, o) => m.createEyes(c, decodeEyes(d.json, d.buf), d.json, { ...o, lite, box: host }), draw: (r, t, f) => r.draw(t, f) },
+  lungs: { part: lite ? 'lungs-lite' : 'lungs', code: () => import('./lungs.js'), make: (m, c, d, o) => m.createLungs(c, decodeLungs(d.json, d.buf), d.json, { ...o, box: host }), draw: (r, t, f) => r.draw(t, f) },
   hands: { part: lite ? 'hands-lite' : 'hands', code: () => import('./hands.js'), make: (m, c, d, o) => m.createHands(c, decodeHands(d.json, d.buf), d.json, { ...o, box: host }), draw: (r, t, f) => r.draw(t, f) },
 };
 

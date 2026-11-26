@@ -149,6 +149,7 @@ const countRaf = () => { window.__raf = 0; const r = requestAnimationFrame; wind
 for (const [name, path, still, credit, lit] of [
   ['eyes', '/now/', /eyes/i, /Eyes adapted from the Human Reference Atlas[\s\S]*Visible Human Male/, 'r > 70 || g > 70 || b > 70'],   // anything clearly lit above the warm dark (#261b1f): the eyes, the embers
   ['hands', '/clinical-experience/', /hands/i, /Hands adapted from 3D scans of plaster casts of Abraham Lincoln[\s\S]*CC0/, 'Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && r > 60'],
+  ['lungs', '/life/', /lungs/i, /Lungs adapted from the Human Reference Atlas[\s\S]*Visible Human Female/, 'r > 70 && g < 60 && b < 70'],
 ]) {
   test.describe(`the ${name}`, () => {
     test.describe.configure({ timeout: 240000 });

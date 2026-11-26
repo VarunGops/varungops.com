@@ -56,6 +56,19 @@ export function decodeEyes(json, buf) {
   return { nv, pos, nrm, cls, side, index: new Uint32Array(buf, nv * 12, nf * 3) };
 }
 
+// lungs.bin: per vertex 3 x uint16 position, 3 x int8 normal, uint8 class (0 surface, 1 bronchus), a spare byte, padded
+// to 12 bytes; then uint32 indices
+export function decodeLungs(json, buf) {
+  const nv = json.verts, nf = json.faces;
+  if (buf.byteLength < NEED.lungs(json)) throw new RangeError('lungs.bin is truncated');
+  const dv = new DataView(buf), pos = new Float32Array(nv * 3), nrm = new Int8Array(nv * 3), cls = new Uint8Array(nv);
+  for (let i = 0; i < nv; i++) {
+    for (let a = 0; a < 3; a++) { pos[i * 3 + a] = json.lo[a] + dv.getUint16(i * 12 + a * 2, true) / 65535 * (json.hi[a] - json.lo[a]); nrm[i * 3 + a] = dv.getInt8(i * 12 + 6 + a); }
+    cls[i] = dv.getUint8(i * 12 + 9);
+  }
+  return { nv, pos, nrm, cls, index: new Uint32Array(buf, nv * 12, nf * 3) };
+}
+
 // hands.bin: per vertex 3 x uint16 position, 3 x int8 normal, uint8 hand (0 upper, 1 lower), padded to 4 bytes; then uint32 indices
 export function decodeHands(json, buf) {
   const nv = json.verts, nf = json.faces;
@@ -85,6 +98,7 @@ export const NEED = {
   hands: j => Math.ceil(j.verts * 10 / 4) * 4 + j.faces * 12,
   tracts: j => j.streamlines * j.points * 6 + 2 * j.streamlines,
   heart: j => Math.ceil(j.verts * 10 / 4) * 4 + j.faces * 12,
+  lungs: j => j.verts * 12 + j.faces * 12,
 };
 const kindOf = name => name.replace('-lite', '');
 
