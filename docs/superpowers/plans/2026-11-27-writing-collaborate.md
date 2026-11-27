@@ -21,4 +21,15 @@
 4. Drafts-only Writing page must not leak into production builds. E2E (production test unchanged) + drafts check.
 5. Both pages fit the budget with the outline mesh.
 
-### Task 1: prep both pages' data. ### Task 2: fibres.js + Writing wiring. ### Task 3: ribbons background. ### Task 4: Collaborate wiring (fibres from above, beat pulses). ### Task 5: fluid background. ### Task 6: critique, stills, checks, review, show.
+### Task 1: Prep both pages' data
+
+### Task 2: fibres.js and the Writing page
+
+### Task 3: The ribbons background
+
+### Task 4: The Collaborate page (fibres from above, beat pulses)
+
+### Task 5: The fluid background
+
+### Task 6: Critique, stills, checks, review, show
+
