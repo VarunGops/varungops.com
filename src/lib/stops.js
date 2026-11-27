@@ -7,7 +7,7 @@ export const STOPS = [
   { id: 'clinical-experience', label: 'Clinical Experience', path: '/clinical-experience/', art: 'hands' },
   { id: 'research', label: 'Research', path: '/research/', art: 'neuron' },
   { id: 'teaching', label: 'Teaching', path: '/teaching/', art: 'pair' },
-  { id: 'writing', label: 'Writing', path: '/writing/', art: null },
+  { id: 'writing', label: 'Writing', path: '/writing/', art: 'arcuate' },
   { id: 'life', label: 'Life', path: '/life/', art: 'lungs' },
   { id: 'collaborate', label: 'Collaborate', path: '/collaborate/', art: null },
 ].map((s, i) => ({ ...s, side: i % 2 ? 'left' : 'right' }));

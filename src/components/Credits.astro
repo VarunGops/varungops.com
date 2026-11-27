@@ -5,6 +5,7 @@ const { art } = Astro.props;
 const LINES = {
   heart: ['Heart adapted from BodyParts3D, (c) The Database Center for Life Science.', 'Pulse rings adapted from Jaume Sánchez’s DOF Tunnel (Codevember 2016), CC BY 4.0.'],
   eyes: ['Eyes adapted from the Human Reference Atlas 3D reference organs (NIH 3D 3DPX-020998 and 3DPX-020999), created from the Visible Human Male, National Library of Medicine. CC BY 4.0.', 'The bonfire is adapted from Jaume Sánchez’s Whirly Bonfire (Codevember 2017), CC BY 4.0; noise by Ashima Arts (MIT).'],
+  arcuate: ['Tract adapted from the HCP-1065 tractography atlas (Yeh FC, Nat Commun 13, 4933, 2022), CC BY-SA 4.0. Data were provided by the Human Connectome Project, WU-Minn Consortium.', 'MNI ICBM 152 2009c template, Copyright (C) 1993-2004 Louis Collins, McConnell Brain Imaging Centre, Montreal Neurological Institute, McGill University.'],
   pair: ['Neurons and synapses from the H01 dataset (Shapson-Coe et al., Science 2024; Lichtman Lab, Harvard, and Google), CC BY 4.0: proofread cell 1900905433 and the cell it synapses onto, 1332939895, an automated reconstruction.', 'The particle stream follows Jaume Sánchez’s Plasma waves (Codevember 2017), CC BY 4.0.'],
   neuron: ['Neuron and cell positions from the H01 dataset (Shapson-Coe et al., Science 2024; Lichtman Lab, Harvard, and Google), CC BY 4.0.', 'The deep field follows Jaume Sánchez’s Starfield (Codevember 2016), CC BY 4.0.'],
   lungs: ['Lungs adapted from the Human Reference Atlas 3D reference organs (NIH 3D 3DPX-021008), created from the Visible Human Female, National Library of Medicine. CC BY 4.0.', 'The glowing lines are adapted from Jaume Sánchez’s Lines (Codevember 2016), CC BY 4.0.'],
@@ -20,4 +21,5 @@ const LINES = {
     <li>The scribbles behind the page follow Jaume Sánchez’s Curl Scribbles (Codevember 2017), written afresh.</li>
   </ul>}
   {(!art || art === 'heart') && <p>The adapted tract and heart files are offered under the same share-alike terms.</p>}
+  {(art === 'arcuate' || art === 'callosum') && <p>The adapted tract files are offered under the same share-alike terms.</p>}
 </footer>

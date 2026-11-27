@@ -61,6 +61,7 @@ test('a research entry opens from the Research page and leads back to it', async
 });
 
 test('Writing has no page while there is nothing written', async ({ page, request }) => {
+  test.skip(drafts, 'a drafts preview shows the empty page, to see its art');
   expect((await request.get('/writing/')).status()).toBe(404);
   await page.goto('/');
   await expect(page.locator('[data-label="Writing"] a')).toHaveCount(0);
@@ -146,15 +147,17 @@ const bright = async (page, sel, cond) => page.evaluate(([sel, cond]) => {
 const noWebGL = () => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (k, ...a) { return /webgl/.test(k) ? null : g.call(this, k, ...a); }; };
 const countRaf = () => { window.__raf = 0; const r = requestAnimationFrame; window.requestAnimationFrame = f => { window.__raf++; return r(f); }; };
 
-for (const [name, path, still, credit, lit] of [
+for (const [name, path, still, credit, lit, draftOnly] of [
   ['eyes', '/now/', /eyes/i, /Eyes adapted from the Human Reference Atlas[\s\S]*Visible Human Male/, 'r > 70 || g > 70 || b > 70'],   // anything clearly lit above the warm dark (#261b1f): the eyes, the embers
   ['hands', '/clinical-experience/', /hands/i, /Hands adapted from 3D scans of plaster casts of Abraham Lincoln[\s\S]*CC0/, 'Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && r > 60'],
   ['pair', '/teaching/', /brain cells/i, /Neurons and synapses from the H01 dataset[\s\S]*automated reconstruction/, 'r + g + b > 150'],
   ['neuron', '/research/', /neuron/i, /Neuron and cell positions from the H01 dataset[\s\S]*CC BY 4\.0/, 'r + g + b > 150'],
+  ['arcuate', '/writing/', /arcuate fasciculus/i, /Tract adapted from the HCP-1065[\s\S]*McGill University/, 'r + g + b > 120', true],   // Writing opens with its first piece: until then, drafts only
   ['lungs', '/life/', /lungs/i, /Lungs adapted from the Human Reference Atlas[\s\S]*Visible Human Female/, 'r > 70 && g < 60 && b < 70'],
 ]) {
   test.describe(`the ${name}`, () => {
     test.describe.configure({ timeout: 240000 });
+    test.skip(!!draftOnly && !drafts, 'this page is not public yet: run with SHOW_DRAFTS=1');
     test('go live and draw', async ({ page }) => {
       await page.goto(`${path}?hage=2&hyaw=0`);
       await expect(page.locator('html')).toHaveAttribute('data-stage', 'live', { timeout: 120000 });

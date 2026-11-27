@@ -119,6 +119,8 @@ export const NEED = {
   lungs: j => j.verts * 12 + j.faces * 12,
   neuron: j => j.segs * 22 + j.cells * 8,
   pair: j => j.segs * 22,
+  arcuate: j => j.streamlines * j.points * 6 + j.meshVerts * 12 + j.meshFaces * 12,
+  callosum: j => j.streamlines * j.points * 6 + j.meshVerts * 12 + j.meshFaces * 12,
 };
 const kindOf = name => name.replace('-lite', '');
 

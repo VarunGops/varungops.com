@@ -43,7 +43,7 @@ export async function stopData() {
       description: 'Research by Dr Varun Gopal Rajan: publications, presentations and current projects.' },
     teaching: { heading: 'Teaching and education', kicker: 'Teaching', intro: 'EduEcho · Case scenarios and skill videos · Simulation and OSCEs', open: true,
       description: 'Teaching by Dr Varun Gopal Rajan: EduEcho, case scenarios and skill videos, simulation and OSCE teaching.' },
-    writing: { heading: 'Essays and notes', kicker: 'Writing', intro: null, open: writing.length > 0,
+    writing: { heading: 'Essays and notes', kicker: 'Writing', intro: null, open: writing.length > 0 || showDrafts(),   // in a drafts preview the page shows while empty, to see its art
       description: 'Essays and notes by Dr Varun Gopal Rajan.' },
     life: { heading: life.entry.data.heading, kicker: 'Life', intro: 'Football · Skating · Music · Cooking · Languages', open: !life.hidden,
       description: 'Dr Varun Gopal Rajan outside medicine.' },

@@ -6,7 +6,7 @@ Inputs:
                                   (the corpus callosum). Yeh FC, Nat Commun 13, 4933 (2022), CC BY-SA 4.0; data from
                                   the Human Connectome Project.
   public/data/brain.bin + .json   the site's MNI brain surface (McGill), for Writing's faint outline
-Output (an adaptation of the atlas, so CC BY-SA 4.0): writing.bin/json, collab.bin/json (+ -lite), in <out_dir>.
+Output (an adaptation of the atlas, so CC BY-SA 4.0): arcuate.bin/json, callosum.bin/json (+ -lite), named after the art, in <out_dir>.
 
 Each streamline is resampled to 32 points and turned so its light runs the right way: the arcuate fasciculus from
 its frontal end (the larger y) to its temporal end, the corpus callosum from left to right. A random but seeded
@@ -75,8 +75,8 @@ def main(atlas, data):
     cc, cc_n = bundle(atlas, "commissural/CC.tt.gz", 1500, 0, False, 12)
     for cell, sfx, keep in ((3.0, "", 1), (4.5, "-lite", 2)):
         mesh = brain_outline(data, cell)
-        write(data, "writing" + sfx, af[::keep], mesh, {"bundle": "AF_L", "source": af_n, "order": "frontal end first", "credit": credit})
-        write(data, "collab" + sfx, cc[::keep], None, {"bundle": "CC", "source": cc_n, "order": "left end first", "credit": credit})
+        write(data, "arcuate" + sfx, af[::keep], mesh, {"bundle": "AF_L", "source": af_n, "order": "frontal end first", "credit": credit})
+        write(data, "callosum" + sfx, cc[::keep], None, {"bundle": "CC", "source": cc_n, "order": "left end first", "credit": credit})
 
 
 if __name__ == "__main__":

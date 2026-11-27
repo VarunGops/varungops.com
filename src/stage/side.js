@@ -1,4 +1,4 @@
-/* A section page's anatomy: the heart on About, the eyes on Now, the hands on Clinical Experience, the lungs on Life, the neuron on Research, the connected pair on Teaching. Each runs on its
+/* A section page's anatomy: the heart on About, the eyes on Now, the hands on Clinical Experience, the lungs on Life, the neuron on Research, the connected pair on Teaching, the arcuate fasciculus on Writing. Each runs on its
    own clock, with no burst, and only while it is on screen. The same stage states as the home page: 'live' once a
    frame is drawn, 'still' or 'failed' keep the still image up. */
 import { loadPart, decodeEyes, decodeHands, decodeLungs, decodeNeuron } from './data.js';
@@ -14,6 +14,7 @@ const lite = innerWidth < 700;
 const ART = {
   heart: { part: 'heart', code: () => import('./heart.js'), make: (m, c, d, o) => m.createHeart(c, d, o), draw: (r, t, f) => r.draw(t, 0, f) },
   eyes: { part: lite ? 'eyes-lite' : 'eyes', code: () => import('./eyes.js'), make: (m, c, d, o) => m.createEyes(c, decodeEyes(d.json, d.buf), d.json, { ...o, lite, box: host }), draw: (r, t, f) => r.draw(t, f) },
+  arcuate: { part: lite ? 'arcuate-lite' : 'arcuate', code: () => import('./fibres.js'), make: (m, c, d, o) => m.createFibres(c, m.decodeFibres(d.json, d.buf, 'lateralLeft'), { ...o, box: host, mode: 'writing' }), draw: (r, t, f) => r.draw(t, f) },
   pair: { part: lite ? 'pair-lite' : 'pair', code: () => import('./pair.js'), make: (m, c, d, o) => m.createPair(c, decodeNeuron(d.json, d.buf), { ...o, box: host }), draw: (r, t, f) => r.draw(t, f) },
   neuron: { part: lite ? 'neuron-lite' : 'neuron', code: () => import('./neuron.js'), make: (m, c, d, o) => m.createNeuron(c, decodeNeuron(d.json, d.buf), { ...o, box: host }), draw: (r, t, f) => r.draw(t, f) },
   lungs: { part: lite ? 'lungs-lite' : 'lungs', code: () => import('./lungs.js'), make: (m, c, d, o) => m.createLungs(c, decodeLungs(d.json, d.buf), d.json, { ...o, box: host }), draw: (r, t, f) => r.draw(t, f) },
