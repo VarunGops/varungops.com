@@ -1,0 +1,1 @@
+{"streamlines": 1100, "points": 32, "lo": [-71.746, -106.513, -72.044], "hi": [71.746, 73.309, 81.675], "meshVerts": 17623, "meshFaces": 35926, "bundle": "AF_L", "source": 34156, "order": "frontal end first", "credit": "Adapted from the HCP-1065 tractography atlas, Yeh FC, Nat Commun 2022, CC BY-SA 4.0. Data: Human Connectome Project."}
