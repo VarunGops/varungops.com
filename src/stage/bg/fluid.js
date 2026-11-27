@@ -34,10 +34,14 @@ export function fluidClock() {
   let simT = null, warmT = null, lastN = null;
   return {
     advance(t, preserve, step, push, reset = () => {}) {
-      if (preserve ? warmT !== t : simT == null) { reset(); simT = t - 4; warmT = t; lastN = beat(simT).n; }   // warmed up once (or once per fixed moment)
+      // a fixed moment is warmed once over the 4 s before it, so it always looks the same; running, it starts empty at
+      // once and fills on the next beat, never doing a warm-up's work inside one frame
+      if (preserve ? warmT !== t : simT == null) { reset(); simT = preserve ? t - 4 : t; warmT = t; lastN = beat(simT).n; }
       else if (!preserve && t - simT > 0.5) { simT = t - STEP; lastN = beat(simT).n; }                         // back from a pause: carry on, do not catch up
+      const cap = preserve ? 260 : 4;
       let k = 0;
-      while (simT + STEP <= t && k < 260) { simT += STEP; const n = beat(simT).n; if (n !== lastN) { lastN = n; push(n, amp(n), simT); } step(simT); k++; }
+      while (simT + STEP <= t && k < cap) { simT += STEP; const n = beat(simT).n; if (n !== lastN) { lastN = n; push(n, amp(n), simT); } step(simT); k++; }
+      if (!preserve && simT + STEP <= t) simT = t;   // a slow device: time slips rather than piling up steps for the next frame
       return k;
     },
   };

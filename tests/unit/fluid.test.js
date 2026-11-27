@@ -52,10 +52,14 @@ describe('the fluid clock', () => {
     for (let i = 1; i < ns.length; i++) expect(ns[i]).toBe(ns[i - 1] + 1);
     for (const [n, a] of pushes) expect(a).toBe(amp(n));
   });
-  it('warms up over the four seconds before the first frame, pushes and all', () => {
-    const { c, pushes, step, push } = run();
-    expect(c.advance(10, false, step, push)).toBeGreaterThan(200);
-    expect(pushes.length).toBeGreaterThanOrEqual(3);
+  it('running, it starts empty at once: no warm-up crammed into the first frame', () => {
+    const { c, step, push } = run();
+    expect(c.advance(10, false, step, push)).toBeLessThanOrEqual(4);
+  });
+  it('running, it never takes more than four steps in a frame, and lets time slip rather than catch up', () => {
+    const { c, step, push } = run(); c.advance(10, false, step, push);
+    expect(c.advance(10.4, false, step, push)).toBeLessThanOrEqual(4);
+    expect(c.advance(10.4 + 1 / 60, false, step, push)).toBeLessThanOrEqual(2);
   });
   it('back from a pause it carries on rather than catching up', () => {
     const { c, step, push } = run(); c.advance(10, false, step, push);
