@@ -153,6 +153,7 @@ for (const [name, path, still, credit, lit, draftOnly] of [
   ['pair', '/teaching/', /brain cells/i, /Neurons and synapses from the H01 dataset[\s\S]*automated reconstruction/, 'r + g + b > 150'],
   ['neuron', '/research/', /neuron/i, /Neuron and cell positions from the H01 dataset[\s\S]*CC BY 4\.0/, 'r + g + b > 150'],
   ['arcuate', '/writing/', /arcuate fasciculus/i, /Tract adapted from the HCP-1065[\s\S]*McGill University/, 'r + g + b > 120', true],   // Writing opens with its first piece: until then, drafts only
+  ['callosum', '/collaborate/', /corpus callosum/i, /Tract adapted from the HCP-1065[\s\S]*share-alike/, 'r + g + b > 120', true],   // Collaborate is a draft
   ['lungs', '/life/', /lungs/i, /Lungs adapted from the Human Reference Atlas[\s\S]*Visible Human Female/, 'r > 70 && g < 60 && b < 70'],
 ]) {
   test.describe(`the ${name}`, () => {

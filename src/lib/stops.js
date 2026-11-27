@@ -9,7 +9,7 @@ export const STOPS = [
   { id: 'teaching', label: 'Teaching', path: '/teaching/', art: 'pair' },
   { id: 'writing', label: 'Writing', path: '/writing/', art: 'arcuate' },
   { id: 'life', label: 'Life', path: '/life/', art: 'lungs' },
-  { id: 'collaborate', label: 'Collaborate', path: '/collaborate/', art: null },
+  { id: 'collaborate', label: 'Collaborate', path: '/collaborate/', art: 'callosum' },
 ].map((s, i) => ({ ...s, side: i % 2 ? 'left' : 'right' }));
 
 export const CONTACT_SIDE = STOPS.length % 2 ? 'left' : 'right';
