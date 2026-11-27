@@ -14,10 +14,15 @@ describe('the light along the arcuate fasciculus', () => {
 
 describe('the light across the corpus callosum', () => {
   it('crosses on each beat, alternating sides, full on the volley', () => {
-    const even = crossing(4 * T + 0.3), odd = crossing(5 * T + 0.3);
-    expect(even.dir).toBe(1); expect(odd.dir).toBe(-1);
-    expect(even.amp).toBe(1); expect(odd.amp).toBeLessThan(0.5);
-    expect(crossing(4 * T + 0.5).s).toBeGreaterThan(crossing(4 * T + 0.2).s);   // left to right: s rises
-    expect(crossing(5 * T + 0.5).s).toBeLessThan(crossing(5 * T + 0.2).s);     // right to left: s falls
+    for (let n = 4; n < 7; n++) expect(crossing((n + 1) * T + 0.3).dir).toBe(-crossing(n * T + 0.3).dir);
+    expect(crossing(4 * T + 0.3).amp).toBe(1); expect(crossing(5 * T + 0.3).amp).toBeLessThan(0.5);
+    for (const n of [4, 5]) {                                                   // s rises left to right, falls right to left
+      const d = crossing(n * T + 0.3).dir, ds = crossing(n * T + 0.5).s - crossing(n * T + 0.2).s;
+      expect(Math.sign(ds)).toBe(d);
+    }
+  });
+  it('the full volley crosses one way, then the other way on the next volley', () => {
+    expect(crossing(4 * T + 0.3).dir).toBe(-crossing(0 * T + 0.3).dir);
+    expect(crossing(8 * T + 0.3).dir).toBe(-crossing(4 * T + 0.3).dir);
   });
 });

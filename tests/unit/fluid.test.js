@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pairOf, fluidClock } from '../../src/stage/bg/fluid.js';
+import { pairOf, pushOf, fluidClock } from '../../src/stage/bg/fluid.js';
 import { T, amp } from '../../src/stage/clock.js';
 
 const hue = ([r, g, b]) => {
@@ -20,6 +20,23 @@ describe('the colours poured from each side', () => {
   });
   it('are bright, never grey', () => {
     for (let n = 0; n < 12; n++) for (const c of [pairOf(n).left, pairOf(n).right]) { expect(Math.max(...c)).toBeGreaterThan(0.8); expect(Math.max(...c) - Math.min(...c)).toBeGreaterThan(0.5); }
+  });
+});
+
+describe('each push', () => {
+  const lum = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  it('pours a complementary pair, one colour from each side', () => {
+    for (let n = 0; n < 12; n++) { const p = pushOf(n); expect(gap(hue(p.left.color), hue(p.right.color))).toBeCloseTo(0.5, 2); }
+  });
+  it('the two jets pass each other, one high and one low, and swap each beat', () => {
+    for (let n = 0; n < 12; n++) {
+      const p = pushOf(n), q = pushOf(n + 1);
+      expect(Math.abs(p.left.y - p.right.y)).toBeGreaterThan(0.15);
+      expect(Math.sign(q.left.y - q.right.y)).toBe(-Math.sign(p.left.y - p.right.y));
+    }
+  });
+  it('a cool colour pours as strongly as its warm partner', () => {
+    for (let n = 0; n < 12; n++) { const p = pushOf(n), a = lum(p.left.color), b = lum(p.right.color); expect(Math.min(a, b) / Math.max(a, b)).toBeGreaterThan(0.45); }
   });
 });
 

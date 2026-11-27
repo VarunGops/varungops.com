@@ -15,9 +15,10 @@ export function writingPulses(t) {
   return { fwd: p * 1.2 - 0.1, back: 1.1 - ((p + 0.5) % 1) * 1.2 };
 }
 
-// the light crossing the corpus callosum on this beat: where it is (0 left end, 1 right), which way, how strong
+// the light crossing the corpus callosum on this beat: where it is (0 left end, 1 right), which way, how strong. Beats
+// alternate, and each full volley goes the other way from the last (the order is flipped at every fourth beat)
 export function crossing(t) {
-  const { n, a } = beat(t), dir = n % 2 === 0 ? 1 : -1, p = Math.min(1.2, a / (0.75 * T)) - 0.1;
+  const { n, a } = beat(t), dir = (n + Math.floor(n / 4)) % 2 === 0 ? 1 : -1, p = Math.min(1.2, a / (0.75 * T)) - 0.1;
   return { s: dir > 0 ? p : 1 - p, dir, amp: amp(n) };
 }
 
@@ -53,12 +54,12 @@ uniform vec3 uMni;             // which way MNI x, y, z lie in view space, for t
 out vec4 o;
 void main(){
   float edge = 1. - smoothstep(.5, 1., abs(vSide));
-  float jit = (fract(sin(vSeed*12.9898)*43758.5453) - .5)*.06;          // each streamline's pulse a touch early or late
+  float jit = (fract(sin(vSeed*12.9898)*43758.5453) - .5)*.03;          // each streamline's pulse a touch early or late
   float h = exp(-pow((vS - uPulse.x - jit)/.035, 2.)) + exp(-pow((vS - uPulse.y + jit)/.035, 2.));
   vec3 col = .08 + .92*pow(vDir, vec3(.9));                               // tractography colours (in view axes, mapped below)
   col = vec3(col[int(uMni.x)], col[int(uMni.y)], col[int(uMni.z)]);
-  float I = .42 + 2.2*h*uPulse.z;
-  vec3 c = mix(col, vec3(1., .97, .92), clamp(h*uPulse.z*.6, 0., .7))*I*edge*.8;
+  float I = .42 + .9*h*uPulse.z;                                          // the light lifts the fibres' own colour, never past it to white
+  vec3 c = mix(col, vec3(1., .97, .92), clamp(h*uPulse.z*.4, 0., .3))*I*edge*.8;
   o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
 // the brain's outline: a faint shell, lit only at its rim
@@ -77,7 +78,7 @@ void main(){
 const SHELL_FS = `#version 300 es
 precision highp float;
 in vec3 vN; out vec4 o;
-void main(){ vec3 n = normalize(vN); float rim = pow(1. - abs(n.z), 3.); vec3 c = vec3(.55, .6, .78)*rim*.32; o = vec4(c, max(c.r, max(c.g, c.b))); }`;
+void main(){ vec3 n = normalize(vN); float rim = pow(1. - abs(n.z), 3.); vec3 c = vec3(.55, .6, .78)*rim*.16; o = vec4(c, max(c.r, max(c.g, c.b))); }`;
 
 export function decodeFibres(json, buf, view) {
   const N = json.streamlines, P = json.points, V = VIEW[view], lo = json.lo, hi = json.hi;

@@ -52,10 +52,11 @@ uniform float uT, uGain; uniform vec4 uArt;
 ${WORDS}
 out vec4 o;
 void main(){
-  float band = pow(.5 + .5*sin(6.2832*(vS*5. - uT*.05)), 6.);       // light running along every line in step
+  float band = pow(.5 + .5*sin(6.2832*(vS*5. - uT*.05)), 6.)*.7;       // light running along every line in step
   float I = (.3 + 1.2*band)*smoothstep(.22, .42, vS)*smoothstep(1., .9, vS)*mix(1., .55, clamp(vZ/25., 0., 1.));   // from where they have spread to the end; the far side fainter
   vec3 col = mix(vec3(.85), abs(vDir), .55);                         // the tract colours, softened
-  vec3 c = col*I*uGain*clearOfWords()*mix(.4, 1., box(uArt, 40., 160.));   // quieter behind the brain
+  float r = length((gl_FragCoord.xy - uArt.xy)/uArt.zw);
+  vec3 c = col*I*uGain*clearOfWords()*mix(mix(.1, .05, smoothstep(0., .6, (gl_FragCoord.y - uArt.y)/uArt.w)), 1., smoothstep(.75, 1.35, r));   // nearly gone behind the brain, fading out round it
   o = vec4(c, max(c.r, max(c.g, c.b)));
 }`;
 
@@ -86,11 +87,11 @@ export function createRibbons(canvas, { lite = false, preserve = false } = {}) {
     draw(t, view) {
       clear(); gl.useProgram(pr.p); gl.bindVertexArray(vao);
       const W = canvas.width, H = canvas.height, c = view.centre, a = view.anchor;
-      gl.uniform2f(pr.u.uRes, W, H); gl.uniform2f(pr.u.uC, c[0], c[1]);
+      gl.uniform2f(pr.u.uRes, W, H); gl.uniform2f(pr.u.uC, c[0] + 0.2 * W, c[1]);   // its bright middle beside the brain, not through it
       gl.uniform1f(pr.u.uScale, Math.max(W, H) / 44);                                     // both wings and their crossing, filling the screen as in the demo
       gl.uniform1f(pr.u.uYaw, 0.5 + (view.fixedYaw != null ? view.fixedYaw : 0.35 * Math.sin(2 * Math.PI * t / 60)));
-      gl.uniform1f(pr.u.uT, t); gl.uniform1f(pr.u.uGain, lite ? 0.2 : 0.13);
-      gl.uniform4f(pr.u.uArt, c[0] - a[0] * 0.3, c[1] - a[1] * 0.4, c[0] + a[0] * 0.3, c[1] + a[1] * 0.4);
+      gl.uniform1f(pr.u.uT, t); gl.uniform1f(pr.u.uGain, lite ? 0.14 : 0.09);
+      gl.uniform4f(pr.u.uArt, c[0], c[1], a[0] * 0.36, a[1] * 0.42);   // the brain's centre and half-size
       gl.uniform4fv(pr.u.uText, view.text); gl.uniform4fv(pr.u.uNav, view.nav);
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawElements(gl.LINES, idx.length, gl.UNSIGNED_INT, 0); gl.disable(gl.BLEND); gl.bindVertexArray(null);
     },
