@@ -249,3 +249,28 @@ test.describe('Writing: flowing line ribbons', () => {
     await expect(page.getByRole('contentinfo')).toContainText('The flowing line ribbons follow Jaume Sánchez’s Strange Attractors (Codevember 2016), CC BY 4.0.');
   });
 });
+
+// Collaborate is a draft: its background is checked on a drafts build
+test.describe('Collaborate: complementary colours from two sides', () => {
+  test.skip(!process.env.SHOW_DRAFTS, 'Collaborate shows only in a drafts build while it is a draft');
+  const third = (page, side) => page.evaluate(s => ({ x: s ? innerWidth * 2 / 3 : 0, y: 0, w: innerWidth / 3, h: innerHeight * 0.6 }), side);
+  test('pours colour in from both sides', async ({ page }) => {
+    await page.goto('/collaborate/?hage=2.2&hyaw=0'); await live(page);
+    expect((await sample(page, 'Math.max(r, g, b) > 50', await third(page, 0))).n).toBeGreaterThan(30);
+    expect((await sample(page, 'Math.max(r, g, b) > 50', await third(page, 1))).n).toBeGreaterThan(30);
+  });
+  test('the two sides are different colours', async ({ page }) => {
+    await page.goto('/collaborate/?hage=2.2&hyaw=0'); await live(page);
+    const mean = box => page.evaluate(b => {
+      const c = document.querySelector('#bg'), k = c.width / innerWidth, o = document.createElement('canvas'); o.width = 48; o.height = 32;
+      const g = o.getContext('2d'); g.drawImage(c, b.x * k, b.y * k, b.w * k, b.h * k, 0, 0, 48, 32); const d = g.getImageData(0, 0, 48, 32).data; const m = [0, 0, 0];
+      for (let i = 0; i < d.length; i += 4) for (let j = 0; j < 3; j++) m[j] += d[i + j] * d[i + 3] / 255; const s = m[0] + m[1] + m[2] || 1; return m.map(v => v / s);
+    }, box);
+    const L = await mean(await third(page, 0)), R = await mean(await third(page, 1));
+    expect(Math.abs(L[0] - R[0]) + Math.abs(L[1] - R[1]) + Math.abs(L[2] - R[2])).toBeGreaterThan(0.3);
+  });
+  test('the credit names the source', async ({ page }) => {
+    await page.goto('/collaborate/');
+    await expect(page.getByRole('contentinfo')).toContainText('The fluid follows Pavel Dobryakov’s WebGL Fluid Simulation (MIT).');
+  });
+});

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 // every uniform a page's own shaders declare is set in its code (not only mentioned in a comment): an unset uniform
 // stays 0 and silently breaks what it controls
 const SHARED = ['uFit', 'uYaw', 'uRes', 'uText', 'uNav'];   // set through cortex's camera helper or the layer's words box
-for (const file of ['src/stage/pair.js', 'src/stage/bg/stream.js', 'src/stage/neuron.js', 'src/stage/bg/field.js', 'src/stage/fibres.js', 'src/stage/bg/ribbons.js']) {
+for (const file of ['src/stage/pair.js', 'src/stage/bg/stream.js', 'src/stage/neuron.js', 'src/stage/bg/field.js', 'src/stage/fibres.js', 'src/stage/bg/ribbons.js', 'src/stage/bg/fluid.js']) {
   test(`${file} sets every uniform it declares`, () => {
     const src = readFileSync(file, 'utf8');
     const code = src.split('\n').map(l => l.replace(/\/\/.*$/, '')).join('\n');           // comments out
