@@ -226,3 +226,26 @@ test.describe('Teaching: the particle stream', () => {
   });
 });
 
+
+// Writing has no public page until a piece is published: its background is checked on a drafts build
+test.describe('Writing: flowing line ribbons', () => {
+  test.skip(!process.env.SHOW_DRAFTS, 'Writing shows only in a drafts build until a piece is published');
+  test('draws ribbons of lines across the page', async ({ page }) => {
+    await page.goto('/writing/?hage=1.5&hyaw=0'); await live(page);
+    const s = await sample(page, 'r + g + b > 60');
+    expect(s.n).toBeGreaterThan(40); expect(s.sd).toBeGreaterThan(s.mean * 0.5);   // lines, not a wash
+  });
+  test('the words sit on a dimmed background', async ({ page }) => {
+    await page.goto('/writing/?hage=1.5&hyaw=0'); await live(page);
+    const [under, bare] = await dimmedUnderWords(page);
+    expect(bare).toBeGreaterThan(0.02); expect(under).toBeLessThan(bare * 0.45);
+  });
+  test('with reduced motion the ribbons still show', async ({ page }) => {
+    await page.goto('/writing/'); await live(page);
+    expect((await sample(page, 'r + g + b > 60')).n).toBeGreaterThan(40);
+  });
+  test('the credit names the source', async ({ page }) => {
+    await page.goto('/writing/');
+    await expect(page.getByRole('contentinfo')).toContainText('The flowing line ribbons follow Jaume Sánchez’s Strange Attractors (Codevember 2016), CC BY 4.0.');
+  });
+});

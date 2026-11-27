@@ -3,7 +3,7 @@
 // the wider pieces draw on #art. The still shows until a frame is drawn, and stays when one cannot be.
 interface Props { kind: 'heart' | 'eyes' | 'hands' | 'lungs' | 'neuron' | 'pair' | 'arcuate' }
 const { kind } = Astro.props;
-const BG = new Set(['heart', 'hands', 'lungs', 'neuron', 'pair']);   // the pages with a background behind the anatomy (src/stage/bg/layer.js)
+const BG = new Set(['heart', 'hands', 'lungs', 'neuron', 'pair', 'arcuate']);   // the pages with a background behind the anatomy (src/stage/bg/layer.js)
 const ALT = {
   eyes: 'A pair of human eyes from the front, in colour, with fine strands of light fanning out from the pupils',
   hands: 'Two human hands cast from life, drawn in grey, one reaching down and one reaching up, joined by red strings',

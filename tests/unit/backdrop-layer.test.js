@@ -8,7 +8,7 @@ test('the canvas never passes 1.5x or seven million pixels', () => {
   const s = canvasScale(3840, 2160, 2); expect(3840 * 2160 * s * s).toBeLessThanOrEqual(7e6 + 1);
 });
 
-test('the heart, hands, lungs, neuron and pair have a background so far', () => { expect(BG).toEqual({ heart: 'rings', hands: 'flow', lungs: 'glow', neuron: 'field', pair: 'stream' }); });
+test('the heart, hands, lungs, neuron, pair and arcuate have a background so far', () => { expect(BG).toEqual({ heart: 'rings', hands: 'flow', lungs: 'glow', neuron: 'field', pair: 'stream', arcuate: 'ribbons' }); });
 
 test('a ring leaves with each beat and widens', () => {
   const a = ringsAt(4 * T + 0.01, { speed: 300 }), b = ringsAt(4 * T + 0.5, { speed: 300 });
